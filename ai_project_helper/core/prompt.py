@@ -15,35 +15,14 @@ def build_functions_description():
             req = "required" if param in required else "optional"
             typ = info.get("type", "string")
             desc_val = info.get("description", "")
-            desc += f'  ({j}) {param} ({typ}, {req}): {desc_val}\n'
+            enum_info = ""
+            if "enum" in info:
+                enum_values = ', '.join(f'"{v}"' for v in info["enum"])
+                enum_info = f" options: [{enum_values}]"
+            desc += f'  ({j}) {param} ({typ}, {req}): {desc_val}{enum_info}\n'
         desc += f'---- END FUNCTION #{idx} ----\n'
     return desc
-# build_functions_description 生成效果示例
-'''  
----- BEGIN FUNCTION #1: shell_command ----
-Description: Execute a shell command.
-Parameters:
-  (1) command (string, required): Shell command to execute
-  (2) cwd (string, optional): working directory (optional)
----- END FUNCTION #1 ----
----- BEGIN FUNCTION #2: file_edit ----
-Description: Edit file: create, replace, append, or delete.
-Parameters:
-  (1) command (string, required): create/str_replace/append/delete
-  (2) path (string, required): File path
-  (3) file_text (string, optional): File content (for create)
-  (4) old_str (string, optional): String to replace
-  (5) new_str (string, optional): Replacement string
-  (6) append_text (string, optional): Text to append
----- END FUNCTION #2 ----
----- BEGIN FUNCTION #3: directory ----
-Description: Create or delete directory
-Parameters:
-  (1) command (string, required): create/mkdir/delete/rmdir
-  (2) path (string, required): Directory path
----- END FUNCTION #3 ----
 
-''' 
 # 输出要求
 OUTPUT_RULES ="""
 OUTPUT RULEs:
@@ -64,7 +43,7 @@ IN_CONTEXT_EXAMPLES = """
 </function>
 
 <function=str_replace_editor>
-<parameter=command>create</parameter>
+<parameter=command>update</parameter>
 <parameter=path>/workdir/app.py</parameter>
 <parameter=file_text>
 from flask import Flask
@@ -96,13 +75,9 @@ def build_prompt(user_task, working_dir=None):
     return f"""
 You can call functions to complete DevOps tasks, with the parameter structure of each function as follows. the workdir is always at {working_dir}.
 Available Functions & Parameters:
-
 {build_functions_description()}
-
 {IN_CONTEXT_EXAMPLES}
-
 {OUTPUT_RULES}
-
 -------------------New Task-------------------
 {user_task}
 ------------------- End -------------------

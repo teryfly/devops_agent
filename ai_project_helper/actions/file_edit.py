@@ -32,6 +32,14 @@ class FileEditAction(BaseAction):
                 with open(abs_path, "w", encoding="utf-8") as f:
                     f.write(file_text or "")
                 yield (f"文件创建成功: {abs_path}\n", "")
+                
+            elif command == "update":
+                # 更新：用 file_text 覆盖原文件内容
+                os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+                with open(abs_path, "w", encoding="utf-8") as f:
+                    f.write(file_text or "")
+                yield (f"文件内容已覆盖更新: {abs_path}\n", "")
+          
 
             elif command == "str_replace":
                 if not os.path.exists(abs_path):

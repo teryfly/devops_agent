@@ -23,7 +23,7 @@ class Agent:
     
     def execute_actions(self, actions):
         for idx, action_dict in enumerate(actions):
-            parameters = copy.deepcopy(action_dict.get("parameters", {}))
+            parameters = self.copy.deepcopy(action_dict.get("parameters", {}))
             parameters["_config"] = {"working_dir": self.config.get("working_dir")}
             action_type = action_dict["action_type"]
             step_description = action_dict["step_description"]
@@ -60,7 +60,7 @@ class Agent:
                     "output": "",
                     "error": "",
                     "command": command,
-                    "real_path": parameters.get("real_path", "")
+
                 }
             except Exception as e:
                 logger.exception("Action 执行失败")
@@ -72,7 +72,7 @@ class Agent:
                     "output": "",
                     "error": str(e),
                     "command": command,
-                    "real_path": parameters.get("real_path", "")
+
                 }
                 break
 
@@ -83,7 +83,7 @@ class Agent:
         action_type = action_dict["action_type"]
         step_description = action_dict["step_description"]
         # 深拷贝，避免污染原始参数
-        parameters = copy.deepcopy(action_dict.get("parameters", {}))
+        parameters = self.copy.deepcopy(action_dict.get("parameters", {}))
         command = parameters.get("command", "")
         parameters["_config"] = {"working_dir": self.config.get("working_dir")}
         logger.info(f"Executing action_type: {action_type}, step: {step_description}")

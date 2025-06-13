@@ -2,7 +2,7 @@ import grpc
 
 from ai_project_helper.proto import helper_pb2 as helper_pb2, helper_pb2_grpc
 def main():
-    plan_path = "examples/1.txt"
+    plan_path = "examples/2.txt"
     with open(plan_path, "r", encoding="utf-8") as f:
         plan_text = f.read()
 

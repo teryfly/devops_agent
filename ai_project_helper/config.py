@@ -1,4 +1,4 @@
-# core/config.py
+import os
 def load_config(config_path="config_ai_project_helper.yaml"):
     import yaml
     with open(config_path) as f:

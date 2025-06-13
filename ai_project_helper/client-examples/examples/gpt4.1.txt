@@ -1,0 +1,469 @@
+# **devops-agent: Real-time LLM-Powered DevOps Automation Agent**
+
+## Overview
+
+- **Purpose:** Automate developer operations from natural language plans, using a local LLM for semantic parsing, with real-time execution and streaming feedback over gRPC.
+- **Key Features:**  
+  - Accepts detailed free-form plans (e.g., step-by-step instructions from ChatGPT).
+  - Uses a local LLM (via [litellm proxy](https://github.com/BerriAI/litellm)) to parse/structure steps into *Actions*.
+  - Executes Actions on Ubuntu 24.04, streaming live output/status/errors back to the client via gRPC.
+  - Extensible action schema and execution engine.
+  - Configurable via an external YAML/JSON config file.
+  - Fully pip-installable, standard-compliant Python package.
+
+---
+## 1. **Project Structure**
+
+```
+devops_agent/
+├── __init__.py
+├── agent.py           # Main entry point (Agent class)
+├── actions/
+│   ├── __init__.py
+│   ├── base.py        # BaseAction class
+│   ├── shell.py       # RunCommandAction, etc.
+│   ├── file.py        # WriteFileAction, etc.
+│   └── ...            # Extensible action modules
+├── llm.py             # LLM client wrapper (litellm proxy)
+├── config.py          # Config loader
+├── proto/
+│   └── agent.proto    # gRPC service definition
+├── server.py          # gRPC server implementation
+├── client.py          # gRPC client sample
+├── utils.py
+└── examples/
+    └── plan.txt
+setup.py
+pyproject.toml
+README.md
+requirements.txt
+```
+
+---
+
+## 2. **Action Schema**
+
+```python
+# actions/base.py
+
+from typing import Any, Dict, Optional
+
+class BaseAction:
+    def __init__(self, action_type: str, parameters: Dict[str, Any],
+                 step_description: str, depends_on: Optional[list]=None):
+        self.action_type = action_type
+        self.parameters = parameters
+        self.step_description = step_description
+        self.depends_on = depends_on or []
+
+    def execute(self, feedback_callback):
+        raise NotImplementedError("Must implement in subclass")
+```
+
+**Example Action JSON:**
+```json
+{
+  "action_type": "run_command",
+  "parameters": {
+    "command": "npm install"
+  },
+  "step_description": "Run `npm install` to install dependencies.",
+  "depends_on": [1]
+}
+```
+
+---
+
+## 3. **LLM Integration**
+
+```python
+# llm.py
+
+import requests
+import yaml
+
+class LLMClient:
+    def __init__(self, config):
+        self.api_url = config['llm']['api_url']
+        self.api_key = config['llm']['api_key']
+        self.model = config['llm']['model']
+
+    def plan_to_actions(self, plan_text: str):
+        """
+        Use the LLM to convert a plan to a list of Action JSON objects.
+        """
+        prompt = f"""Analyze the following project plan. For each step, output a JSON object with:
+- action_type
+- parameters
+- step_description
+- depends_on (optional, list of indices)
+
+Plan:
+{plan_text}
+
+Respond as a JSON array only, no extra text.
+"""
+        response = requests.post(
+            self.api_url,
+            json={
+                "model": self.model,
+                "messages": [{"role": "user", "content": prompt}]
+            },
+            headers={"Authorization": f"Bearer {self.api_key}"}
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+```
+
+---
+
+## 4. **gRPC Service Definition**
+
+```proto
+// proto/agent.proto
+
+syntax = "proto3";
+
+package devopsagent;
+
+service DevOpsAgent {
+  // Start a new automation session
+  rpc RunPlan (PlanRequest) returns (stream ActionFeedback) {}
+}
+
+message PlanRequest {
+  string plan_text = 1;
+}
+
+message ActionFeedback {
+  int32 action_index = 1;
+  string action_type = 2;
+  string step_description = 3;
+  string status = 4; // "pending", "running", "success", "failed"
+  string output = 5; // stdout (streamed)
+  string error = 6;  // stderr (streamed)
+}
+```
+
+---
+
+## 5. **Agent Execution Loop**
+
+```python
+# agent.py
+
+import json
+from devops_agent.llm import LLMClient
+from devops_agent.actions import get_action_class
+
+class DevOpsAgent:
+    def __init__(self, config):
+        self.llm = LLMClient(config)
+
+    def parse_plan(self, plan_text: str):
+        raw = self.llm.plan_to_actions(plan_text)
+        actions = json.loads(raw)
+        return actions
+
+    def execute_actions(self, actions, feedback_callback):
+        """
+        Execute actions in order, streaming feedback via callback.
+        """
+        for idx, action_dict in enumerate(actions):
+            action_type = action_dict["action_type"]
+            step_description = action_dict["step_description"]
+            parameters = action_dict.get("parameters", {})
+            depends_on = action_dict.get("depends_on", [])
+            ActionCls = get_action_class(action_type)
+            action = ActionCls(action_type, parameters, step_description, depends_on)
+            feedback_callback(idx, action_type, step_description, "running", "", "")
+            try:
+                for out, err in action.execute_stream():
+                    feedback_callback(idx, action_type, step_description, "running", out, err)
+                feedback_callback(idx, action_type, step_description, "success", "", "")
+            except Exception as e:
+                feedback_callback(idx, action_type, step_description, "failed", "", str(e))
+                break  # or continue, based on config
+```
+
+---
+
+## 6. **Sample Action Implementation**
+
+```python
+# actions/shell.py
+
+import subprocess
+from .base import BaseAction
+
+class RunCommandAction(BaseAction):
+    def execute_stream(self):
+        process = subprocess.Popen(
+            self.parameters["command"],
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        while True:
+            out = process.stdout.readline()
+            err = process.stderr.readline()
+            if out:
+                yield (out, "")
+            if err:
+                yield ("", err)
+            if not out and not err and process.poll() is not None:
+                break
+```
+
+---
+
+## 7. **gRPC Server Implementation**
+
+```python
+# server.py
+
+import grpc
+from concurrent import futures
+import time
+import devops_agent.proto.agent_pb2 as pb2
+import devops_agent.proto.agent_pb2_grpc as pb2_grpc
+from devops_agent.agent import DevOpsAgent
+from devops_agent.config import load_config
+
+class DevOpsAgentServicer(pb2_grpc.DevOpsAgentServicer):
+    def __init__(self, config):
+        self.agent = DevOpsAgent(config)
+
+    def RunPlan(self, request, context):
+        plan_text = request.plan_text
+        actions = self.agent.parse_plan(plan_text)
+        def feedback_callback(idx, action_type, desc, status, out, err):
+            feedback = pb2.ActionFeedback(
+                action_index=idx,
+                action_type=action_type,
+                step_description=desc,
+                status=status,
+                output=out,
+                error=err,
+            )
+            context.send_message(feedback)
+        self.agent.execute_actions(actions, feedback_callback)
+        return
+
+def serve():
+    config = load_config()
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    pb2_grpc.add_DevOpsAgentServicer_to_server(DevOpsAgentServicer(config), server)
+    server.add_insecure_port('[::]:50051')
+    server.start()
+    print("Server started on port 50051")
+    server.wait_for_termination()
+
+if __name__ == "__main__":
+    serve()
+```
+
+---
+
+## 8. **Extensibility**
+
+- Add a new action by implementing a subclass of `BaseAction` in `actions/`.
+- Register it in `actions/__init__.py`:
+
+```python
+# actions/__init__.py
+
+from .shell import RunCommandAction
+from .file import WriteFileAction
+
+ACTION_REGISTRY = {
+    "run_command": RunCommandAction,
+    "write_file": WriteFileAction,
+    # Add new actions here
+}
+
+def get_action_class(action_type):
+    return ACTION_REGISTRY[action_type]
+```
+
+---
+
+## 9. **Sample Input and Output**
+
+**Sample Input (plan.txt):**
+```
+1. Create a directory `myapp`.
+2. Initialize a Node.js project in `myapp`.
+3. Install express and dotenv as dependencies in `myapp`.
+4. Create a file `myapp/server.js` with a basic Express server.
+5. Start the server using `node myapp/server.js`.
+```
+
+**LLM-Generated Actions:**
+```json
+[
+  {
+    "action_type": "create_directory",
+    "parameters": {"path": "myapp"},
+    "step_description": "Create a directory `myapp`."
+  },
+  {
+    "action_type": "run_command",
+    "parameters": {"command": "npm init -y", "cwd": "myapp"},
+    "step_description": "Initialize a Node.js project in `myapp`.",
+    "depends_on": [0]
+  },
+  {
+    "action_type": "run_command",
+    "parameters": {"command": "npm install express dotenv", "cwd": "myapp"},
+    "step_description": "Install express and dotenv as dependencies in `myapp`.",
+    "depends_on": [1]
+  },
+  {
+    "action_type": "write_file",
+    "parameters": {
+      "path": "myapp/server.js",
+      "content": "// Express server code here"
+    },
+    "step_description": "Create a file `myapp/server.js` with a basic Express server.",
+    "depends_on": [2]
+  },
+  {
+    "action_type": "run_command",
+    "parameters": {"command": "node server.js", "cwd": "myapp"},
+    "step_description": "Start the server using `node myapp/server.js`.",
+    "depends_on": [3]
+  }
+]
+```
+
+**Streaming Feedback Example:**
+```json
+{
+  "action_index": 2,
+  "action_type": "run_command",
+  "step_description": "Install express and dotenv as dependencies in `myapp`.",
+  "status": "running",
+  "output": "added 50 packages...",
+  "error": ""
+}
+```
+
+---
+
+## 10. **Installation & Usage**
+
+### **Installation**
+
+```sh
+pip install devops-agent
+```
+
+### **Run the Agent Server**
+
+```sh
+# With config.yaml in current dir
+python -m devops_agent.server
+```
+
+### **Client Usage Example**
+
+```python
+# client.py
+
+import grpc
+import devops_agent.proto.agent_pb2 as pb2
+import devops_agent.proto.agent_pb2_grpc as pb2_grpc
+
+def main():
+    with grpc.insecure_channel('localhost:50051') as channel:
+        stub = pb2_grpc.DevOpsAgentStub(channel)
+        request = pb2.PlanRequest(plan_text=open("examples/plan.txt").read())
+        for feedback in stub.RunPlan(request):
+            print(f"[{feedback.status}] {feedback.step_description}")
+            if feedback.output:
+                print("OUT:", feedback.output, end="")
+            if feedback.error:
+                print("ERR:", feedback.error, end="")
+
+if __name__ == "__main__":
+    main()
+```
+
+---
+
+## 11. **Config File Example**
+
+```yaml
+# config.yaml
+llm:
+  api_url: "http://localhost:4000/v1/chat/completions"
+  api_key: "sk-xxx"
+  model: "gpt-4-32k"
+agent:
+  error_handling: "continue"
+  max_actions: 100
+```
+
+---
+
+## 12. **Dependencies**
+
+- [grpcio](https://pypi.org/project/grpcio/)
+- [protobuf](https://pypi.org/project/protobuf/)
+- [requests](https://pypi.org/project/requests/)
+- [pyyaml](https://pypi.org/project/pyyaml/)
+- [litellm](https://github.com/BerriAI/litellm) (for LLM proxy, not a Python dependency)
+
+---
+
+## 13. **README.md Excerpt**
+
+```markdown
+# devops-agent
+
+LLM-powered, real-time DevOps automation agent with streaming feedback over gRPC.
+
+## Quickstart
+
+1. Install:
+   ```sh
+   pip install devops-agent
+   ```
+
+2. Start the agent server:
+   ```sh
+   python -m devops_agent.server
+   ```
+
+3. Connect and submit a plan (see `examples/plan.txt`).
+
+## Features
+
+- Input: Free-form dev plans (natural language)
+- Output: Structured actions + real-time execution feedback
+- Extensible: Easily add new actions
+- Powered by local LLM via [litellm proxy](https://github.com/BerriAI/litellm)
+- Communication: gRPC streaming
+
+## Example Usage
+
+See `examples/` and `client.py` for a complete example.
+```
+
+---
+
+## 14. **How Extensible Is This?**
+
+- **Add new actions:** Just subclass `BaseAction` and register.
+- **Support more LLMs:** Point config to another litellm endpoint/model.
+- **Change feedback:** gRPC proto can be extended for richer feedback.
+
+---
+
+**This structure and approach will give you a robust, real-time, LLM-powered DevOps automation agent, installable via pip, gRPC-connected, and extensible for the future.**
+
+---
+
+**Let me know if you want a specific code file in full (e.g., `agent.py`, `server.py`, or the gRPC proto) or a `setup.py` and packaging boilerplate!**

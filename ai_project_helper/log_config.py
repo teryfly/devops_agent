@@ -6,7 +6,7 @@ from datetime import datetime
 def setup_logging():
     """配置日志系统，按月份创建二级目录，日志按日期存放"""
     # 基础日志目录
-    log_dir = os.path.expanduser("/devops_agent_logs/ai_project_helper_log")
+    log_dir = os.path.expanduser("/.devops_agent_logs/ai_project_helper_log")
     
     # 创建月份子目录
     today = datetime.now()

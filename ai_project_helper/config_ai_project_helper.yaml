@@ -2,12 +2,12 @@
 llm:
   api_url: "http://192.168.120.238:8001/v1/chat/completions"
   api_key: "sk-test"
-  #model: "devstral"
+  ### model: "devstral-q8"
   # model: "command-a"
-  model: "qwen2.5"
-  #model: "qwen3"
+  ### model: "qwen2.5"
+  model: "qwen3"
   # model: "seek"
-  # model: "gemma3"
+  ### model: "gemma3"
 agent:
   error_handling: "continue"
   max_actions: 100

@@ -19,22 +19,20 @@ class Agent:
         logger.info("LLM model: %s, action_types: %s", self.model, action_types)
         return actions
 
+    import copy
+    
     def execute_actions(self, actions):
-        """
-        生成器方式，逐步执行每个 action 并 yield ActionFeedback 所需字段
-        """
         for idx, action_dict in enumerate(actions):
+            parameters = copy.deepcopy(action_dict.get("parameters", {}))
+            parameters["_config"] = {"working_dir": self.config.get("working_dir")}
             action_type = action_dict["action_type"]
             step_description = action_dict["step_description"]
-            parameters = action_dict.get("parameters", {})
             command = parameters.get("command", "")
-            parameters["_config"] = {"working_dir": self.config.get("working_dir")}
             logger.info(f"Executing action_type: {action_type}, step: {step_description}")
-
+    
             ActionCls = get_action_class(action_type)
             action = ActionCls(action_type, parameters, step_description)
-
-            # yield running 开始
+    
             yield {
                 "action_index": idx,
                 "action_type": action_type,
@@ -42,9 +40,8 @@ class Agent:
                 "status": "running",
                 "output": "",
                 "error": "",
-                "command": command
+                "command": command,
             }
-
             try:
                 for out, err in action.execute_stream():
                     yield {
@@ -54,9 +51,7 @@ class Agent:
                         "status": "running",
                         "output": out or "",
                         "error": err or "",
-                        "command": command
                     }
-                # 执行成功
                 yield {
                     "action_index": idx,
                     "action_type": action_type,
@@ -64,7 +59,8 @@ class Agent:
                     "status": "success",
                     "output": "",
                     "error": "",
-                    "command": command
+                    "command": command,
+                    "real_path": parameters.get("real_path", "")
                 }
             except Exception as e:
                 logger.exception("Action 执行失败")
@@ -75,9 +71,10 @@ class Agent:
                     "status": "failed",
                     "output": "",
                     "error": str(e),
-                    "command": command
+                    "command": command,
+                    "real_path": parameters.get("real_path", "")
                 }
-                break  # 失败时终止后续 action，可按需改为 continue
+                break
 
     def execute_action(self, action_dict):
         """
@@ -85,7 +82,8 @@ class Agent:
         """
         action_type = action_dict["action_type"]
         step_description = action_dict["step_description"]
-        parameters = action_dict.get("parameters", {})
+        # 深拷贝，避免污染原始参数
+        parameters = copy.deepcopy(action_dict.get("parameters", {}))
         command = parameters.get("command", "")
         parameters["_config"] = {"working_dir": self.config.get("working_dir")}
         logger.info(f"Executing action_type: {action_type}, step: {step_description}")

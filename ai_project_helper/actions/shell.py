@@ -1,8 +1,7 @@
-# actions/shell.py
-
 import subprocess
 import os
 import logging
+
 from .base import BaseAction
 
 logger = logging.getLogger("ai_project_helper.actions.shell")
@@ -10,7 +9,7 @@ logger = logging.getLogger("ai_project_helper.actions.shell")
 def remap_abspath_to_workdir(cmd, workdir):
     """
     将命令字符串中的绝对路径替换为以工作目录为根的路径。
-    仅替换以 / 开头的不包含空格和特殊符号的路径。
+    仅替换以 / 开头的路径。
     """
     import re
     def _replace(match):
@@ -18,19 +17,14 @@ def remap_abspath_to_workdir(cmd, workdir):
         rel_path = abspath.lstrip("/")
         safe_path = os.path.join(workdir, rel_path)
         return safe_path
-    # 这里仅示例替换 /a/b/c，实际项目可用更精细的正则
+    # 简单匹配 /a/b/c 等路径
     return re.sub(r'(/\w[\w\-/\.]*)', _replace, cmd)
 
 class ShellCommandAction(BaseAction):
     def execute_stream(self):
         command = self.parameters.get("command")
-        config = self.parameters.get("_config", {})  # 允许从参数传递 config
+        config = self.parameters.get("_config", {})
         working_dir = config.get("working_dir", os.getcwd())
-        # ...在这里用 working_dir 做 cwd ...
-        proc = subprocess.Popen(
-            command, shell=True, cwd=working_dir,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
         if not command:
             yield ("", "缺少命令参数")
             return

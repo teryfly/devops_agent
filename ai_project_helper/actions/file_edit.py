@@ -1,4 +1,3 @@
-# 文件写入/编辑/替换
 import os
 import shutil
 import logging
@@ -11,17 +10,17 @@ class FileEditAction(BaseAction):
         path = self.parameters.get("path")
         config = self.parameters.get("_config", {})
         workdir = config.get("working_dir", os.getcwd())
-        abs_path = self.safe_abs_path(path, workdir)        
         command = self.parameters.get("command")
         file_text = self.parameters.get("file_text")
         old_str = self.parameters.get("old_str")
         new_str = self.parameters.get("new_str")
         append_text = self.parameters.get("append_text")
 
-        root_dir = os.path.abspath(os.getcwd())
-        abs_path = os.path.abspath(path)
-        if not abs_path.startswith(root_dir):
-            yield ("", f"安全警告：不允许访问工作目录之外的文件: {abs_path}")
+        # 统一用 safe_abs_path 做路径重定向和安全校验
+        try:
+            abs_path = self.safe_abs_path(path, workdir)
+        except PermissionError as e:
+            yield ("", str(e))
             return
 
         try:

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package ai_project_helper;
+
+service AIProjectHelper {
+  rpc RunPlan (PlanRequest) returns (stream ActionFeedback) {}
+  rpc CreateProject (ProjectRequest) returns (stream ActionFeedback) {}
+}
+
+message PlanRequest {
+  string plan_text = 1;
+}
+
+message ProjectRequest {
+  string project_steps = 1;
+}
+
+message ActionFeedback {
+  int32 action_index = 1;
+  string action_type = 2;
+  string step_description = 3;
+  string status = 4; // "pending", "running", "success", "failed"
+  string output = 5;
+  string error = 6;
+  string command = 7;
+}

@@ -1,0 +1,14 @@
+# config.yaml
+llm:
+  api_url: "http://192.168.120.238:8001/v1/chat/completions"
+  api_key: "sk-test"
+  #model: "devstral"
+  # model: "command-a"
+  model: "qwen2.5"
+  #model: "qwen3"
+  # model: "seek"
+  # model: "gemma3"
+agent:
+  error_handling: "continue"
+  max_actions: 100
+working_dir: "/aiWorkDir"

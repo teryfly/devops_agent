@@ -32,6 +32,7 @@ OUTPUT RULEs:
 4. Paired XML tags must be properly nested and closed—every opening <tag> must have a corresponding closing </tag>
 5. Values between tags must be replaced with actual content per task requirements.
 6. Single function per output – no combined operations.
+7. For all file_edit operations, "command" must always be provided. Valid values: create, update, str_replace, append, delete.
 """
 
 # 输出的示例

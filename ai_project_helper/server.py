@@ -5,13 +5,16 @@ from ai_project_helper.proto import helper_pb2, helper_pb2_grpc
 from ai_project_helper.core.agent import Agent
 from ai_project_helper.config import load_config
 from ai_project_helper.log_config import setup_logging, get_logger
+from ai_project_helper.core.prompt import build_prompt
 
+import requests
 # 初始化日志
 setup_logging()
 logger = get_logger("server")
 
 class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
     def __init__(self, config):
+        self.config = config
         self.agent = Agent(config)
         self.logger = get_logger("server.servicer")
     def RunPlan(self, request, context):
@@ -39,7 +42,59 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
 
         for fb in self.agent.execute_actions(actions):
             yield helper_pb2.ActionFeedback(**fb)
-            
+    
+    def GetPlanThenRun(self, request, context):
+       
+
+        requirement = request.requirement
+        model = request.model or self.config['llm']['model']
+        llm_url = request.llm_url or self.config['llm']['api_url']
+        api_key = self.config['llm']['api_key']
+
+        # 第一步：向 LLM-B 请求生成 plan
+        try:
+            prompt = requirement  # 直接将客户需求作为 prompt 请求远程 LLM
+            logger.info(f"请求 LLM-B（{model}@{llm_url}）生成 plan: {prompt}")
+            response = requests.post(
+                llm_url,
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 2048,
+                    "temperature": 0,
+                },
+                headers={"Authorization": f"Bearer {api_key}"}
+            )
+            response.raise_for_status()
+            plan_text = response.json()["choices"][0]["message"]["content"]
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"LLM-B 调用失败: {e}")
+            return
+
+        # 第二步：将 plan_text 反馈给客户端
+        yield helper_pb2.ActionFeedback(
+            action_index=-1,
+            action_type="llm_plan",
+            step_description="LLM-B生成的计划内容",
+            status="success",
+            output=plan_text,
+            command="",
+            error=""
+        )
+
+        # 第三步：使用本地 LLM-A 解析 plan_text 为 actions，并执行
+        try:
+            actions = self.agent.parse_plan(plan_text)
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(f"解析 plan 失败: {e}")
+            return
+
+        for fb in self.agent.execute_actions(actions):
+            yield helper_pb2.ActionFeedback(**fb)
+   
+
     def CreateProject(self, request, context):
         steps = request.project_steps
         logger.info(f"Received project creation steps:\n{steps}")

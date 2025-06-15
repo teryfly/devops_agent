@@ -1,0 +1,553 @@
+Write a ** formula calculation management system**
+Requirements: Output the implementation steps sequentially, with each step strictly following the "Output Format". Do not add any explanatory text.
+
+### **Output Format**
+
+Clearly indicate the step number, e.g.: Step 1.
+
+Specify the Action, which must be one of: execute shell command, create/delete folder, file operation (create, update, delete). E.g.: Update file.
+
+Specify the file path (except for shell commands), e.g.: /aiWorkDir/src/main.py
+
+Provide the complete bash command or the full code of the relevant file.
+
+# **Backend Development (Session 1)**
+
+## **Project Overview**
+
+Create a Python FastAPI backend for a formula calculation management system with comprehensive Excel-like functions plus calculus operations. All UI text and function descriptions should be in Chinese while maintaining English code structure.
+
+## **Core Architecture**
+
+```
+backend/
+├── app/
+│   ├── main.py                    # FastAPI entry point
+│   ├── database.py                # SQLAlchemy setup
+│   ├── models/                    # Data models
+│   │   ├── field.py              # Input field model
+│   │   ├── variable.py           # Calculation variable model
+│   │   └── calculation.py        # Calculation history
+│   ├── routers/                   # API endpoints
+│   │   ├── fields.py             # Field CRUD
+│   │   ├── variables.py          # Variable CRUD
+│   │   ├── calculations.py       # Calculation APIs
+│   │   ├── functions.py          # Function library API
+│   │   └── help.py               # Documentation API
+│   ├── services/                  # Business logic
+│   │   ├── expression_parser.py  # Expression parsing
+│   │   ├── function_library.py   # Function implementations
+│   │   ├── calculator.py         # Calculation engine
+│   │   └── dependency_analyzer.py # Dependency analysis
+│   └── utils/
+│       └── exceptions.py         # Custom exceptions
+└── tests/                        # Test cases
+```
+
+## **Data Models**
+
+```python
+# Field Model (手动ID，对接外部系统)
+class Field(Base):
+    id = Column(String, primary_key=True)          # 手动设置ID
+    name = Column(String(100), nullable=False)     # 字段名称
+    code = Column(String(50), unique=True)         # 唯一标识
+    data_type = Column(String(20), default="number") # 数据类型
+    description = Column(Text)                     # 描述
+    created_at = Column(DateTime, server_default=func.now())
+
+# Variable Model (自动UUID)
+class Variable(Base):
+    id = Column(String, primary_key=True, default=uuid4)
+    name = Column(String(100), nullable=False)     # 变量名称
+    code = Column(String(50), unique=True)         # 唯一标识
+    expression = Column(Text, nullable=False)      # 计算表达式
+    description = Column(Text)                     # 描述
+    created_at = Column(DateTime, server_default=func.now())
+```
+
+## **Comprehensive Function Library**
+
+Implement complete Excel-compatible functions plus calculus operations:
+
+```python
+class FunctionLibrary:
+    # 数学函数 (Mathematical Functions)
+    @staticmethod
+    def SUM(*args): return sum(args)
+    def AVERAGE(*args): return statistics.mean(args)
+    def MIN(*args): return min(args)
+    def MAX(*args): return max(args)
+    def ABS(value): return abs(value)
+    def SQRT(value): return math.sqrt(value)
+    def POWER(base, exp): return pow(base, exp)
+    def LOG(value, base=10): return math.log(value, base)
+    def LN(value): return math.log(value)
+    def EXP(value): return math.exp(value)
+    
+    # 三角函数 (Trigonometric Functions)
+    def SIN(value): return math.sin(value)
+    def COS(value): return math.cos(value)
+    def TAN(value): return math.tan(value)
+    def ASIN(value): return math.asin(value)
+    def ACOS(value): return math.acos(value)
+    def ATAN(value): return math.atan(value)
+    
+    # 统计函数 (Statistical Functions)
+    def MEDIAN(*args): return statistics.median(args)
+    def STDEV(*args): return statistics.stdev(args)
+    def VAR(*args): return statistics.variance(args)
+    def COUNT(*args): return len([x for x in args if isinstance(x, (int, float))])
+    
+    # 逻辑函数 (Logical Functions)
+    def IF(condition, true_val, false_val): return true_val if condition else false_val
+    def AND(*args): return all(args)
+    def OR(*args): return any(args)
+    def NOT(value): return not value
+    
+    # 微积分函数 (Calculus Functions)
+    def DERIVATIVE(expression, variable, point, h=1e-7):
+        """数值求导 - 计算函数在指定点的导数"""
+        # Using central difference method
+        return (expression(point + h) - expression(point - h)) / (2 * h)
+    
+    def INTEGRAL(expression, lower, upper, method="simpson", n=1000):
+        """数值积分 - 使用辛普森法则或梯形法则"""
+        if method == "simpson":
+            return self._simpson_rule(expression, lower, upper, n)
+        else:
+            return self._trapezoidal_rule(expression, lower, upper, n)
+    
+    def LIMIT(expression, variable, approach_value, direction="both"):
+        """极限计算 - 计算函数在某点的极限"""
+        h = 1e-10
+        if direction == "left":
+            return expression(approach_value - h)
+        elif direction == "right":
+            return expression(approach_value + h)
+        else:
+            left = expression(approach_value - h)
+            right = expression(approach_value + h)
+            return (left + right) / 2 if abs(left - right) < 1e-6 else None
+    
+    def SERIES_SUM(expression, start, end):
+        """级数求和 - 计算有限级数的和"""
+        return sum(expression(i) for i in range(start, end + 1))
+    
+    def TAYLOR_SERIES(func, center, degree, point):
+        """泰勒级数展开 - 计算函数在指定点的泰勒级数近似值"""
+        result = 0
+        for n in range(degree + 1):
+            derivative_n = self._nth_derivative(func, center, n)
+            result += derivative_n * (point - center) ** n / math.factorial(n)
+        return result
+
+    @classmethod
+    def get_function_info(cls):
+        return {
+            "数学函数": {
+                "SUM": {"语法": "SUM(数值1, 数值2, ...)", "说明": "返回所有数值的和", "示例": "SUM(1, 2, 3) = 6"},
+                "AVERAGE": {"语法": "AVERAGE(数值1, 数值2, ...)", "说明": "返回数值的平均值", "示例": "AVERAGE(1, 2, 3) = 2"},
+                "SQRT": {"语法": "SQRT(数值)", "说明": "返回平方根", "示例": "SQRT(16) = 4"},
+                "POWER": {"语法": "POWER(底数, 指数)", "说明": "返回底数的指数次幂", "示例": "POWER(2, 3) = 8"},
+                "LOG": {"语法": "LOG(数值, 底数)", "说明": "返回指定底数的对数", "示例": "LOG(100, 10) = 2"},
+                "LN": {"语法": "LN(数值)", "说明": "返回自然对数", "示例": "LN(2.718) ≈ 1"},
+            },
+            "三角函数": {
+                "SIN": {"语法": "SIN(弧度)", "说明": "返回正弦值", "示例": "SIN(π/2) = 1"},
+                "COS": {"语法": "COS(弧度)", "说明": "返回余弦值", "示例": "COS(0) = 1"},
+                "TAN": {"语法": "TAN(弧度)", "说明": "返回正切值", "示例": "TAN(π/4) = 1"},
+            },
+            "统计函数": {
+                "MEDIAN": {"语法": "MEDIAN(数值1, 数值2, ...)", "说明": "返回中位数", "示例": "MEDIAN(1, 2, 3, 4, 5) = 3"},
+                "STDEV": {"语法": "STDEV(数值1, 数值2, ...)", "说明": "返回标准差", "示例": "STDEV(1, 2, 3, 4, 5)"},
+            },
+            "逻辑函数": {
+                "IF": {"语法": "IF(条件, 真值, 假值)", "说明": "根据条件返回不同值", "示例": "IF(5>3, '是', '否') = '是'"},
+                "AND": {"语法": "AND(条件1, 条件2, ...)", "说明": "所有条件都为真时返回真", "示例": "AND(5>3, 2<4) = 真"},
+            },
+            "微积分函数": {
+                "DERIVATIVE": {"语法": "DERIVATIVE(表达式, 变量, 点)", "说明": "计算函数在指定点的导数", "示例": "DERIVATIVE(x², x, 2) = 4"},
+                "INTEGRAL": {"语法": "INTEGRAL(表达式, 下限, 上限)", "说明": "计算定积分", "示例": "INTEGRAL(x², 0, 2) = 8/3"},
+                "LIMIT": {"语法": "LIMIT(表达式, 变量, 趋向值)", "说明": "计算极限", "示例": "LIMIT(sin(x)/x, x, 0) = 1"},
+                "SERIES_SUM": {"语法": "SERIES_SUM(表达式, 起始, 结束)", "说明": "计算级数和", "示例": "SERIES_SUM(1/n², 1, ∞)"},
+            }
+        }
+```
+
+## **Expression Syntax**
+
+- Variables: `${V:variable-code}`
+- Fields: `${F:field-id}`
+- Functions: `FUNCTION_NAME(param1, param2, ...)`
+- Operators: `+`, `-`, `*`, `/`, `**`, `()`, `>`, `<`, `>=`, `<=`, `==`, `!=`
+
+## **Key API Endpoints**
+
+```python
+# Field Management
+POST /api/fields                           # 创建字段
+GET /api/fields                           # 获取字段列表  
+PUT /api/fields/{code}                    # 更新字段
+DELETE /api/fields/{code}                 # 删除字段
+
+# Variable Management  
+POST /api/variables                       # 创建变量
+GET /api/variables                        # 获取变量列表
+PUT /api/variables/{code}                 # 更新变量
+DELETE /api/variables/{code}              # 删除变量
+
+# Calculation APIs
+GET /api/variables/{code}/dependencies    # 获取依赖关系
+POST /api/variables/{code}/calculate      # 计算变量值
+POST /api/expressions/validate           # 验证表达式
+
+# Function Library
+GET /api/functions                        # 获取函数库
+GET /api/functions/{category}             # 按类别获取函数
+GET /api/functions/search?q=term          # 搜索函数
+
+# Help System
+GET /api/help/functions                   # 函数文档
+GET /api/help/syntax                      # 语法说明
+GET /api/help/examples                    # 使用示例
+```
+
+## **Requirements**
+
+- Use FastAPI + SQLAlchemy + Alembic
+- SQLite for development, PostgreSQL for production
+- Comprehensive error handling with Chinese error messages
+- Expression parser with circular dependency detection
+- Complete test coverage for all functions
+- API documentation with Chinese descriptions
+
+------
+
+# **Frontend Development (Session 2)**
+
+## **Project Overview**
+
+Create a React TypeScript frontend for the formula calculation system. All UI text should be in Chinese. Provide intuitive expression editing with comprehensive function library, visual dependency management, and calculation testing.
+
+## **Technology Stack**
+
+- React 18 + TypeScript + Vite
+- Ant Design 5.x (Chinese locale)
+- Zustand for state management
+- Monaco Editor for expression editing
+- D3.js for dependency visualization
+- React Router v6
+
+## **Project Structure**
+
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── FieldManager/           # 字段管理
+│   │   ├── VariableManager/        # 变量管理
+│   │   ├── ExpressionEditor/       # 表达式编辑器
+│   │   ├── FunctionLibrary/        # 函数库浏览器
+│   │   ├── CalculationTest/        # 计算测试
+│   │   ├── DependencyGraph/        # 依赖关系图
+│   │   ├── HelpCenter/             # 帮助中心
+│   │   └── Layout/                 # 布局组件
+│   ├── pages/
+│   │   ├── 字段管理页面.tsx
+│   │   ├── 变量管理页面.tsx  
+│   │   ├── 变量编辑页面.tsx
+│   │   ├── 计算测试页面.tsx
+│   │   ├── 依赖关系页面.tsx
+│   │   └── 帮助页面.tsx
+│   ├── services/                   # API services
+│   ├── stores/                     # Zustand stores
+│   ├── types/                      # TypeScript types
+│   └── utils/                      # Utilities
+```
+
+## **Core Features Implementation**
+
+### **1. Expression Editor with Function Library**
+
+```typescript
+// 表达式编辑器组件 - 三面板布局
+interface ExpressionEditorProps {
+  value: string
+  onChange: (value: string) => void
+  variables: Variable[]
+  fields: Field[]
+}
+
+// Required Features:
+// 左侧面板: 函数库浏览器
+//   - 分类显示: 数学函数、三角函数、统计函数、逻辑函数、微积分函数
+//   - 搜索功能：支持函数名和描述搜索
+//   - 函数详情：语法、说明、示例
+//   - 双击插入函数到编辑器
+// 中间面板: Monaco编辑器
+//   - 语法高亮
+//   - 实时错误提示
+//   - 自动完成
+//   - 格式化功能
+// 右侧面板: 变量和字段浏览器
+//   - 可用变量列表
+//   - 可用字段列表  
+//   - 拖拽插入到编辑器
+```
+
+### **2. Function Library Browser**
+
+```typescript
+// 函数库组件 - 支持中文界面
+const FUNCTION_CATEGORIES = {
+  mathematical: "数学函数",
+  trigonometric: "三角函数", 
+  statistical: "统计函数",
+  logical: "逻辑函数",
+  calculus: "微积分函数"
+}
+
+// 函数显示格式
+interface FunctionDisplay {
+  name: string           // 函数名
+  category: string       // 类别
+  syntax: string         // 语法
+  description: string    // 中文说明
+  example: string        // 使用示例
+}
+
+// Features:
+// - 分类展示所有函数
+// - 函数搜索和过滤
+// - 函数详情弹窗（语法、说明、示例）
+// - 收藏常用函数
+// - 最近使用函数
+// - 一键复制函数语法
+```
+
+### **3. Field Management (字段管理)**
+
+```typescript
+// 字段管理页面要求
+// 功能特性:
+// - 表格展示所有字段
+// - 支持新增、编辑、删除字段
+// - 字段ID手动输入（对接外部系统）
+// - 按名称/代码搜索过滤
+// - 删除前检查变量引用
+// - 字段使用统计
+
+// 表单验证:
+// - ID: 必填，唯一性校验
+// - 名称: 必填，1-100字符
+// - 代码: 必填，英文数字下划线，唯一
+// - 数据类型: number/text/boolean/date
+```
+
+### **4. Variable Management (变量管理)**
+
+```typescript
+// 变量管理页面要求
+// 功能特性:
+// - 变量列表表格显示
+// - 显示依赖关系数量
+// - 快速跳转编辑/测试页面
+// - 变量状态指示（正常/错误/循环依赖）
+// - 按名称/代码搜索
+// - 变量模板和克隆
+
+// 表单验证:
+// - 名称: 必填，1-100字符
+// - 代码: 必填，唯一性校验  
+// - 表达式: 必填，语法验证
+```
+
+### **5. Calculation Testing (计算测试)**
+
+```typescript
+// 计算测试组件
+// 功能要求:
+// - 自动加载变量依赖
+// - 动态生成字段输入表单
+// - 支持测试数据预设
+// - 显示计算步骤和结果
+// - 保存测试历史
+// - 批量测试场景
+// - 结果导出功能
+
+// 输入表单:
+// - 根据字段类型生成相应输入控件
+// - 实时验证输入格式
+// - 支持批量清空和重置
+// - 随机测试数据生成
+```
+
+### **6. Dependency Graph (依赖关系图)**
+
+```typescript
+// D3.js依赖关系可视化
+// 功能要求:
+// - 交互式节点操作（拖拽、缩放、平移）
+// - 多种布局算法（力导向、层次、环形）
+// - 节点过滤和分组
+// - 路径高亮显示
+// - 循环依赖警告可视化
+// - 导出图形为图片/SVG
+// - 性能影响指示器
+```
+
+### **7. Help Center (帮助中心)**
+
+```typescript
+// 帮助中心组件 - 中文文档
+// 必需章节:
+// 1. 函数参考手册
+//    - 完整函数库文档
+//    - 交互式示例
+//    - 函数对比表
+//    - 最佳实践
+// 2. 表达式语法指南  
+//    - 变量和字段引用语法
+//    - 运算符优先级
+//    - 数据类型转换
+//    - 常用模式
+// 3. 使用示例
+//    - 分步教程
+//    - 常见计算场景
+//    - 高级表达式模式
+//    - 故障排除指南
+// 4. API文档
+//    - 完整API参考
+//    - 请求响应示例
+//    - 错误代码说明
+```
+
+## **State Management**
+
+```typescript
+// Zustand状态管理结构
+interface AppStore {
+  // 数据状态
+  fields: Field[]
+  variables: Variable[]
+  functions: FunctionInfo
+  calculations: CalculationHistory[]
+  
+  // UI状态
+  loading: Record<string, boolean>
+  selectedVariable: string | null
+  selectedField: string | null
+  
+  // 函数库状态
+  searchQuery: string
+  selectedCategory: string
+  favoriteFunctions: string[]
+  recentFunctions: string[]
+  
+  // 操作方法
+  fetchFields: () => Promise<void>
+  createField: (field: CreateFieldDto) => Promise<void>
+  updateField: (code: string, field: UpdateFieldDto) => Promise<void>
+  deleteField: (code: string) => Promise<void>
+  
+  fetchVariables: () => Promise<void>
+  createVariable: (variable: CreateVariableDto) => Promise<void>
+  updateVariable: (code: string, variable: UpdateVariableDto) => Promise<void>
+  deleteVariable: (code: string) => Promise<void>
+  
+  validateExpression: (expression: string) => Promise<ValidationResult>
+  calculateVariable: (code: string, values: Record<string, number>) => Promise<CalculationResult>
+  getDependencies: (code: string) => Promise<DependencyInfo>
+}
+```
+
+## **API Integration**
+
+```typescript
+// API服务封装 - 调用后端接口
+const API_BASE = 'http://localhost:8400/api'
+
+export class ApiService {
+  // 字段管理
+  static getFields = () => api.get('/fields')
+  static createField = (data: CreateFieldDto) => api.post('/fields', data)
+  static updateField = (code: string, data: UpdateFieldDto) => api.put(`/fields/${code}`, data)
+  static deleteField = (code: string) => api.delete(`/fields/${code}`)
+  
+  // 变量管理
+  static getVariables = () => api.get('/variables')
+  static createVariable = (data: CreateVariableDto) => api.post('/variables', data)
+  static updateVariable = (code: string, data: UpdateVariableDto) => api.put(`/variables/${code}`, data)
+  static deleteVariable = (code: string) => api.delete(`/variables/${code}`)
+  
+  // 计算相关
+  static validateExpression = (expression: string) => api.post('/expressions/validate', { expression })
+  static getDependencies = (code: string) => api.get(`/variables/${code}/dependencies`)
+  static calculateVariable = (code: string, fieldValues: Record<string, number>) => 
+    api.post(`/variables/${code}/calculate`, { field_values: fieldValues })
+  
+  // 函数库
+  static getFunctions = () => api.get('/functions')
+  static searchFunctions = (query: string) => api.get(`/functions/search?q=${query}`)
+  
+  // 帮助文档
+  static getHelp = (section: string) => api.get(`/help/${section}`)
+}
+```
+
+## **Routing Configuration**
+
+```typescript
+// 路由配置 - 中文路径名
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Layout />,
+    children: [
+      { path: "/", element: <Navigate to="/variables" replace /> },
+      { path: "/fields", element: <字段管理页面 /> },
+      { path: "/variables", element: <变量管理页面 /> },
+      { path: "/variables/:code/edit", element: <变量编辑页面 /> },
+      { path: "/variables/:code/test", element: <计算测试页面 /> },
+      { path: "/dependencies", element: <依赖关系页面 /> },
+      { path: "/functions", element: <函数库页面 /> },
+      { path: "/help", element: <帮助页面 /> }
+    ]
+  }
+])
+```
+
+## **UI Requirements**
+
+- All interface text in Chinese
+- Responsive design for desktop and mobile
+- Loading states for all async operations
+- User-friendly error messages in Chinese
+- Keyboard shortcuts for common actions
+- Dark/light theme support
+- Export functionality for results and documentation
+
+## **Development Setup**
+
+```json
+{
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "antd": "^5.12.0",
+    "zustand": "^4.4.0",
+    "react-router-dom": "^6.20.0",
+    "@monaco-editor/react": "^4.6.0",
+    "d3": "^7.8.0",
+    "axios": "^1.6.0"
+  }
+}
+```
+
+**Note**: Ensure backend API is running at `http://localhost:8400` before starting frontend development server.
+

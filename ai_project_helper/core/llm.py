@@ -11,9 +11,10 @@ class LLMClient:
         self.api_url = config['llm']['api_url']
         self.api_key = config['llm']['api_key']
         self.model = config['llm']['model']
+        self.config = config
 
     def build_prompt(self, plan_text):
-        return build_prompt(plan_text)
+        return build_prompt(plan_text, working_dir=self.config.get("working_dir"))
 
     def plan_to_actions(self, plan_text: str):
         prompt = self.build_prompt(plan_text)
@@ -41,7 +42,7 @@ class LLMClient:
             json={
                 "model": self.model,
                 "messages": [{"role": "system", "content": prompt}],
-                "max_tokens": 2048,
+                "max_tokens": 2048000,
                 "temperature": 0,
             },
             headers={"Authorization": f"Bearer {self.api_key}"}

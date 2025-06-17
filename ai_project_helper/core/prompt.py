@@ -1,5 +1,4 @@
-# llm_prompt.py
-
+from ai_project_helper.config import load_config
 from ai_project_helper.core.action_schema import ACTION_SCHEMAS
 
 # 将ACTION_SCHEMAS中的命令工具生成为 工具prompt 
@@ -67,12 +66,11 @@ if __name__ == '__main__':
 ---- END DEMONSTRATION----
 """
 
-# Role:
-#You are a Software Engineering Task Parser. Your role is to decompose complex tasks into executable subtasks whith the format of DEMONSTRATION below, using only the provided functions. 
+
+
 def build_prompt(user_task, working_dir=None):
     if working_dir is None:
-        import os
-        working_dir = os.getcwd()
+        working_dir = load_config().get("working_dir")
     return f"""
 You can call functions to complete DevOps tasks, with the parameter structure of each function as follows. the workdir is always at {working_dir}.
 Available Functions & Parameters:

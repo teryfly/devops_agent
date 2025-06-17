@@ -19,33 +19,30 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
         self.logger = get_logger("server.servicer")
     def RunPlan(self, request, context):
         """
-        gRPC流式接口：接收用户输入的plan_text，解析为actions，逐步执行actions并实时yield反馈
+        gRPC流式接口：接收用户输入的plan_text，按 ------ 拆分后逐步调用LLM构造actions并执行，实时yield反馈
         """
         plan_text = request.plan_text
         logger.info(f"==================接收到客户端请求==================：\n{plan_text[:88]}...\n =============================================================================================================")
 
-        # 1. 构建出 LLM Prompt 并打印
-        try:
-            # 获取 LLM 请求内容（如有 build_prompt，推荐直接调用）
-            prompt = self.agent.llm.build_prompt(plan_text)
-        except Exception:
-            prompt = None
+        task_steps = [s.strip() for s in plan_text.split("------") if s.strip()]
+        step_count = len(task_steps)
 
-        # 2. 解析 action 及执行
-        try:
-            actions = self.agent.parse_plan(plan_text)
-        except Exception as e:
-            logger.error(f"Failed to parse plan: {e}")
-            context.set_details(f"Failed to parse plan: {e}")
-            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-            return
-
-        for fb in self.agent.execute_actions(actions):
-            yield helper_pb2.ActionFeedback(**fb)
-    
-    def GetPlanThenRun(self, request, context):
-       
-
+        for step_index, step_text in enumerate(task_steps):
+            try:
+                for fb in self.agent.run_step_text(step_text, step_index=step_index+1, step_count=step_count):
+                    yield helper_pb2.ActionFeedback(**fb)
+                    if fb.get("status") == "failed":
+                        logger.error(f"第 {step_index+1} 步执行失败，终止后续步骤")
+                        return
+            except Exception as e:
+                logger.exception(f"第 {step_index+1} 步执行异常")
+                context.set_details(f"Step {step_index+1} execution error: {e}")
+                context.set_code(grpc.StatusCode.INTERNAL)
+                return
+   
+ 
+    # 远程 LLM 生成 plan → 本地 LLM 执行 plan”的链式代理
+    def GetPlanThenRun(self, request, context): 
         requirement = request.requirement
         model = request.model or self.config['llm']['model']
         llm_url = request.llm_url or self.config['llm']['api_url']
@@ -60,7 +57,7 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
                 json={
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 2048,
+                    "max_tokens": 2048000,
                     "temperature": 0,
                 },
                 headers={"Authorization": f"Bearer {api_key}"}
@@ -83,18 +80,23 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
             error=""
         )
 
-        # 第三步：使用本地 LLM-A 解析 plan_text 为 actions，并执行
-        try:
-            actions = self.agent.parse_plan(plan_text)
-        except Exception as e:
-            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-            context.set_details(f"解析 plan 失败: {e}")
-            return
+        # 第三步：将 plan_text 拆分为 steps
+        task_steps = [s.strip() for s in plan_text.split("------") if s.strip()]
+        step_count = len(task_steps)
 
-        for fb in self.agent.execute_actions(actions):
-            yield helper_pb2.ActionFeedback(**fb)
-   
-
+        # 第四步：逐步使用本地 LLM-A 解析并执行每个 step
+        for step_index, step_text in enumerate(task_steps):
+            try:
+                for fb in self.agent.run_step_text(step_text, step_index=step_index + 1, step_count=step_count):
+                    yield helper_pb2.ActionFeedback(**fb)
+                    if fb.get("status") == "failed":
+                        return
+            except Exception as e:
+                logger.exception(f"Step {step_index+1} 执行失败")
+                context.set_code(grpc.StatusCode.INTERNAL)
+                context.set_details(f"执行第 {step_index+1} 步失败: {e}")
+                return
+       
     def CreateProject(self, request, context):
         steps = request.project_steps
         logger.info(f"Received project creation steps:\n{steps}")

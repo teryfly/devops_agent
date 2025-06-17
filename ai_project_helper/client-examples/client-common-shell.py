@@ -12,7 +12,7 @@ def main():
         print("=== 任务："+plan_path+" 已提交,开始执行===\n")
    
         for feedback in stub.RunPlan(request):
-            print(f"Step [{feedback.action_index}] [{feedback.status}] {feedback.action_type}: {feedback.step_description}")
+            print(f"{feedback.step_description}")
             if feedback.command:
                 print(f"  COMMAND: {feedback.command}")
             if feedback.output:

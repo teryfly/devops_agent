@@ -1,0 +1,698 @@
+Step 1.
+Action: Create folder
+Path: /backend/app
+
+------
+Step 2.
+Action: Create file
+Path: /backend/app/main.py
+
+```python
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from .database import engine, Base
+from .routers import fields, variables, calculations, functions, help
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Formula Calculation System")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(fields.router, prefix="/api/fields", tags=["fields"])
+app.include_router(variables.router, prefix="/api/variables", tags=["variables"])
+app.include_router(calculations.router, prefix="/api/calculations", tags=["calculations"])
+app.include_router(functions.router, prefix="/api/functions", tags=["functions"])
+app.include_router(help.router, prefix="/api/help", tags=["help"])
+
+@app.get("/")
+async def root():
+    return {"message": "Formula Calculation System API"}
+```
+
+------
+
+Step 3.
+Action: Create file
+Path: /backend/app/database.py
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./formula_calc.db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+------
+
+Step 4.
+Action: Create folder
+Path: /backend/app/models
+
+------
+
+Step 5.
+Action: Create file
+Path: /backend/app/models/field.py
+
+```python
+from sqlalchemy import Column, String, DateTime, Text, func
+from ..database import Base
+
+class Field(Base):
+    __tablename__ = "fields"
+
+    id = Column(String, primary_key=True)
+    name = Column(String(100), nullable=False)
+    code = Column(String(50), unique=True)
+    data_type = Column(String(20), default="number")
+    description = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+```
+------
+
+Step 6.
+Action: Create file
+Path: /backend/app/models/variable.py
+
+```python
+from sqlalchemy import Column, String, DateTime, Text, func
+from uuid import uuid4
+from ..database import Base
+
+class Variable(Base):
+    __tablename__ = "variables"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    name = Column(String(100), nullable=False)
+    code = Column(String(50), unique=True)
+    expression = Column(Text, nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+```
+
+------
+
+**Step 7**
+ Action: Create file
+ Path: /backend/app/models/calculation.py
+
+```python
+from sqlalchemy import Column, String, Text, JSON, DateTime, func
+from ..database import Base
+
+class Calculation(Base):
+    __tablename__ = "calculations"
+
+    id = Column(String, primary_key=True)
+    variable_code = Column(String(50), nullable=False)
+    input_values = Column(JSON, nullable=False)  # 字段值输入
+    result = Column(String)
+    steps = Column(Text)  # 可选：存储中间计算步骤
+    created_at = Column(DateTime, server_default=func.now())
+```
+
+------
+
+**Step 8**
+ Action: Create folder
+ Path: /backend/app/routers
+
+------
+
+**Step 9**
+ Action: Create file
+ Path: /backend/app/routers/fields.py
+
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from ..models.field import Field
+from ..database import get_db
+from uuid import uuid4
+
+router = APIRouter()
+
+@router.get("/")
+def get_fields(db: Session = Depends(get_db)):
+    return db.query(Field).all()
+
+@router.post("/")
+def create_field(field: Field, db: Session = Depends(get_db)):
+    if db.query(Field).filter(Field.code == field.code).first():
+        raise HTTPException(status_code=400, detail="字段代码已存在")
+    db.add(field)
+    db.commit()
+    db.refresh(field)
+    return field
+
+@router.put("/{code}")
+def update_field(code: str, updated_field: Field, db: Session = Depends(get_db)):
+    field = db.query(Field).filter(Field.code == code).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="字段未找到")
+    for key, value in updated_field.__dict__.items():
+        if key != "_sa_instance_state":
+            setattr(field, key, value)
+    db.commit()
+    return field
+
+@router.delete("/{code}")
+def delete_field(code: str, db: Session = Depends(get_db)):
+    field = db.query(Field).filter(Field.code == code).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="字段未找到")
+    db.delete(field)
+    db.commit()
+    return {"message": "删除成功"}
+```
+
+------
+
+**Step 10**
+ Action: Create file
+ Path: /backend/app/routers/variables.py
+
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from ..models.variable import Variable
+from ..database import get_db
+from uuid import uuid4
+
+router = APIRouter()
+
+@router.get("/")
+def get_variables(db: Session = Depends(get_db)):
+    return db.query(Variable).all()
+
+@router.post("/")
+def create_variable(variable: Variable, db: Session = Depends(get_db)):
+    if db.query(Variable).filter(Variable.code == variable.code).first():
+        raise HTTPException(status_code=400, detail="变量代码已存在")
+    db.add(variable)
+    db.commit()
+    db.refresh(variable)
+    return variable
+
+@router.put("/{code}")
+def update_variable(code: str, updated_variable: Variable, db: Session = Depends(get_db)):
+    variable = db.query(Variable).filter(Variable.code == code).first()
+    if not variable:
+        raise HTTPException(status_code=404, detail="变量未找到")
+    for key, value in updated_variable.__dict__.items():
+        if key != "_sa_instance_state":
+            setattr(variable, key, value)
+    db.commit()
+    return variable
+
+@router.delete("/{code}")
+def delete_variable(code: str, db: Session = Depends(get_db)):
+    variable = db.query(Variable).filter(Variable.code == code).first()
+    if not variable:
+        raise HTTPException(status_code=404, detail="变量未找到")
+    db.delete(variable)
+    db.commit()
+    return {"message": "删除成功"}
+```
+
+------
+
+**Step 11**
+ Action: Create file
+ Path: /backend/app/routers/calculations.py
+
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from ..database import get_db
+from ..models.variable import Variable
+from ..models.calculation import Calculation
+from ..services.calculator import calculate_expression
+from ..services.dependency_analyzer import analyze_dependencies
+from uuid import uuid4
+
+router = APIRouter()
+
+@router.get("/variables/{code}/dependencies")
+def get_dependencies(code: str, db: Session = Depends(get_db)):
+    variable = db.query(Variable).filter(Variable.code == code).first()
+    if not variable:
+        raise HTTPException(status_code=404, detail="变量未找到")
+    try:
+        deps = analyze_dependencies(variable.expression)
+        return {"dependencies": deps}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/variables/{code}/calculate")
+def calculate_variable(code: str, request: dict, db: Session = Depends(get_db)):
+    variable = db.query(Variable).filter(Variable.code == code).first()
+    if not variable:
+        raise HTTPException(status_code=404, detail="变量未找到")
+    try:
+        result, steps = calculate_expression(variable.expression, request.get("field_values", {}))
+        record = Calculation(
+            id=str(uuid4()),
+            variable_code=code,
+            input_values=request.get("field_values", {}),
+            result=str(result),
+            steps=steps
+        )
+        db.add(record)
+        db.commit()
+        return {"result": result, "steps": steps}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"计算失败: {str(e)}")
+```
+
+------
+
+**Step 12**
+ Action: Create file
+ Path: /backend/app/routers/functions.py
+
+```python
+from fastapi import APIRouter, Query
+from ..services.function_library import FunctionLibrary
+
+router = APIRouter()
+
+@router.get("/")
+def get_all_functions():
+    return FunctionLibrary.get_function_info()
+
+@router.get("/{category}")
+def get_functions_by_category(category: str):
+    data = FunctionLibrary.get_function_info()
+    return data.get(category, {})
+
+@router.get("/search")
+def search_functions(q: str = Query("")):
+    result = {}
+    q = q.lower()
+    all_funcs = FunctionLibrary.get_function_info()
+    for category, items in all_funcs.items():
+        for name, detail in items.items():
+            if q in name.lower() or q in detail["说明"] or q in detail["语法"]:
+                result[name] = detail
+    return result
+```
+
+------
+
+**Step 13**
+ Action: Create file
+ Path: /backend/app/routers/help.py
+
+```python
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/functions")
+def help_functions():
+    return {"message": "请访问 /functions 查看完整函数库"}
+
+@router.get("/syntax")
+def help_syntax():
+    return {
+        "变量引用": "${V:变量代码}",
+        "字段引用": "${F:字段ID}",
+        "函数调用": "FUNCTION_NAME(参数1, 参数2, ...)",
+        "运算符": ["+", "-", "*", "/", "**", ">", "<", ">=", "<=", "==", "!="]
+    }
+
+@router.get("/examples")
+def help_examples():
+    return {
+        "表达式示例": [
+            "${F:field001} + 100",
+            "IF(${V:var001} > 10, 1, 0)",
+            "SUM(${F:field1}, ${F:field2})",
+        ]
+    }
+```
+
+------
+
+**Step 14**
+ Action: Create folder
+ Path: /backend/app/services
+
+------
+
+**Step 15**
+ Action: Create file
+ Path: /backend/app/services/function_library.py
+
+```python
+import math, statistics
+
+class FunctionLibrary:
+
+    @staticmethod
+    def SUM(*args): return sum(args)
+    def AVERAGE(*args): return statistics.mean(args)
+    def MIN(*args): return min(args)
+    def MAX(*args): return max(args)
+    def ABS(value): return abs(value)
+    def SQRT(value): return math.sqrt(value)
+    def POWER(base, exp): return pow(base, exp)
+    def LOG(value, base=10): return math.log(value, base)
+    def LN(value): return math.log(value)
+    def EXP(value): return math.exp(value)
+
+    def SIN(value): return math.sin(value)
+    def COS(value): return math.cos(value)
+    def TAN(value): return math.tan(value)
+    def ASIN(value): return math.asin(value)
+    def ACOS(value): return math.acos(value)
+    def ATAN(value): return math.atan(value)
+
+    def MEDIAN(*args): return statistics.median(args)
+    def STDEV(*args): return statistics.stdev(args)
+    def VAR(*args): return statistics.variance(args)
+    def COUNT(*args): return len([x for x in args if isinstance(x, (int, float))])
+
+    def IF(condition, true_val, false_val): return true_val if condition else false_val
+    def AND(*args): return all(args)
+    def OR(*args): return any(args)
+    def NOT(value): return not value
+
+    @classmethod
+    def get_function_info(cls):
+        return {
+            "数学函数": {
+                "SUM": {"语法": "SUM(数值1, 数值2, ...)", "说明": "返回所有数值的和", "示例": "SUM(1, 2, 3) = 6"},
+                "AVERAGE": {"语法": "AVERAGE(数值1, 数值2, ...)", "说明": "返回平均值", "示例": "AVERAGE(1, 2, 3) = 2"},
+                "SQRT": {"语法": "SQRT(数值)", "说明": "返回平方根", "示例": "SQRT(16) = 4"},
+            },
+            "逻辑函数": {
+                "IF": {"语法": "IF(条件, 真值, 假值)", "说明": "根据条件返回值", "示例": "IF(5>3, '是', '否') = '是'"},
+            }
+        }
+```
+
+------
+
+**Step 16**
+ Action: Create file
+ Path: /backend/app/services/expression_parser.py
+
+```python
+import re
+
+FIELD_PATTERN = re.compile(r"\$\{F:([^\}]+)\}")
+VARIABLE_PATTERN = re.compile(r"\$\{V:([^\}]+)\}")
+
+def extract_field_ids(expression: str):
+    return FIELD_PATTERN.findall(expression)
+
+def extract_variable_codes(expression: str):
+    return VARIABLE_PATTERN.findall(expression)
+
+def extract_all_dependencies(expression: str):
+    return {
+        "fields": extract_field_ids(expression),
+        "variables": extract_variable_codes(expression)
+    }
+
+def replace_placeholders(expression: str, field_values: dict, variable_values: dict):
+    # 替换字段值
+    def replace_field(match):
+        field_id = match.group(1)
+        return str(field_values.get(field_id, f"None"))
+
+    # 替换变量值
+    def replace_variable(match):
+        var_code = match.group(1)
+        return str(variable_values.get(var_code, f"None"))
+
+    expression = FIELD_PATTERN.sub(replace_field, expression)
+    expression = VARIABLE_PATTERN.sub(replace_variable, expression)
+    return expression
+```
+
+------
+
+**Step 17**
+ Action: Create file
+ Path: /backend/app/services/calculator.py
+
+```python
+import math
+from .expression_parser import replace_placeholders
+from .function_library import FunctionLibrary
+
+def calculate_expression(expression: str, field_values: dict, variable_values: dict = None):
+    if variable_values is None:
+        variable_values = {}
+
+    try:
+        safe_globals = {
+            "__builtins__": {},
+            "math": math,
+        }
+
+        # 加入函数库所有函数
+        for name in dir(FunctionLibrary):
+            if not name.startswith("_") and callable(getattr(FunctionLibrary, name)):
+                safe_globals[name] = getattr(FunctionLibrary, name)
+
+        expr = replace_placeholders(expression, field_values, variable_values)
+        result = eval(expr, safe_globals)
+        return result, f"计算表达式: {expr} => 结果: {result}"
+    except Exception as e:
+        raise RuntimeError(f"表达式计算错误: {str(e)}")
+```
+
+------
+
+**Step 18**
+ Action: Create file
+ Path: /backend/app/services/dependency_analyzer.py
+
+```python
+from .expression_parser import extract_all_dependencies
+
+def analyze_dependencies(expression: str):
+    deps = extract_all_dependencies(expression)
+    return deps
+```
+
+------
+
+**Step 19**
+ Action: Create folder
+ Path: /backend/app/utils
+
+------
+
+**Step 20**
+ Action: Create file
+ Path: /backend/app/utils/exceptions.py
+
+```python
+from fastapi import HTTPException
+
+class ExpressionSyntaxError(HTTPException):
+    def __init__(self, detail="表达式语法错误"):
+        super().__init__(status_code=400, detail=detail)
+
+class CircularDependencyError(HTTPException):
+    def __init__(self, detail="存在循环依赖"):
+        super().__init__(status_code=400, detail=detail)
+```
+
+------
+
+**Step 21**
+ Action: Create folder
+ Path: /backend/tests
+
+------
+
+**Step 22**
+ Action: Create file
+ Path: /backend/tests/test_calculator.py
+
+```python
+from backend.app.services.calculator import calculate_expression
+
+def test_basic_arithmetic():
+    expr = "1 + 2 * 3"
+    result, steps = calculate_expression(expr, {})
+    assert result == 7
+
+def test_field_substitution():
+    expr = "${F:age} + 5"
+    result, steps = calculate_expression(expr, {"age": 10})
+    assert result == 15
+
+def test_variable_substitution():
+    expr = "${V:var1} * 2"
+    result, steps = calculate_expression(expr, {}, {"var1": 4})
+    assert result == 8
+
+def test_function_usage():
+    expr = "SUM(1, 2, 3)"
+    result, steps = calculate_expression(expr, {})
+    assert result == 6
+```
+
+------
+
+**Step 23**
+ Action: Create file
+ Path: /backend/tests/test_parser.py
+
+```python
+from backend.app.services.expression_parser import extract_field_ids, extract_variable_codes
+
+def test_extract_fields():
+    expr = "${F:a} + ${F:b}"
+    fields = extract_field_ids(expr)
+    assert fields == ["a", "b"]
+
+def test_extract_variables():
+    expr = "${V:x} * ${V:y}"
+    vars = extract_variable_codes(expr)
+    assert vars == ["x", "y"]
+```
+
+------
+
+**Step 24**
+ Action: Create file
+ Path: /backend/.env
+
+```env
+ENV=development
+DATABASE_URL=sqlite:///./formula_calc.db
+```
+
+------
+
+**Step 25**
+ Action: Create file
+ Path: /backend/alembic.ini
+
+```ini
+[alembic]
+script_location = alembic
+sqlalchemy.url = sqlite:///./formula_calc.db
+
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stdout,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+```
+
+------
+
+**Step 26**
+ Action: Create file
+ Path: /backend/README.md
+
+~~~markdown
+# Formula Calculation Backend (公式计算系统)
+
+基于 FastAPI + SQLAlchemy 构建的后端系统，支持字段、变量、表达式管理及函数库和计算引擎。
+
+## 快速开始
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 运行服务
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+## 接口文档
+
+访问 http://localhost:8000/docs 查看 Swagger 文档。
+
+## 文件结构简述
+
+- `app/models/`：数据库模型定义
+- `app/routers/`：API 路由接口
+- `app/services/`：业务逻辑
+- `app/utils/`：异常定义
+- `tests/`：测试用例
+~~~
+
+**Step 27**  
+Action: Create file  
+Path: /backend/requirements.txt  
+
+```txt
+fastapi==0.110.0
+uvicorn==0.29.0
+SQLAlchemy==2.0.30
+alembic==1.13.1
+python-dotenv==1.0.1
+```
+
+------
+
+**Step 28**
+
+Action: sell_command
+
+```bash
+cd backend  
+uvicorn app.main:app --reload
+```

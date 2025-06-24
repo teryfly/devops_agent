@@ -1,7 +1,7 @@
-import subprocess
 import os
+import subprocess
 import logging
-
+import select
 from .base import BaseAction
 
 logger = logging.getLogger("ai_project_helper.actions.shell")
@@ -26,28 +26,61 @@ class ShellCommandAction(BaseAction):
         config = self.parameters.get("_config", {})
         working_dir = config.get("working_dir", os.getcwd())
         if not command:
-            yield ("", "缺少命令参数")
+            yield ("", "Missing command parameter", 1)
             return
 
         # 路径重写
         command = remap_abspath_to_workdir(command, working_dir)
-        logger.info(f"执行命令: {command} (cwd={working_dir})")
+        logger.info(f"Executing command: {command} (cwd={working_dir})")
+        
         try:
+            # 使用Popen执行命令
             proc = subprocess.Popen(
-                command, shell=True, cwd=working_dir,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                command, 
+                shell=True,
+                cwd=working_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,  # 行缓冲
+                universal_newlines=True
             )
+            
+            # 使用select处理实时输出
             while True:
-                out = proc.stdout.readline()
-                err = proc.stderr.readline()
-                if out:
-                    yield (out, "")
-                if err:
-                    yield ("", err)
-                if not out and not err and proc.poll() is not None:
+                # 检查进程是否结束
+                if proc.poll() is not None:
                     break
-            rc = proc.poll()
-            yield (f"命令执行完成，退出码: {rc}\n", "")
+                    
+                # 非阻塞读取输出
+                reads = [proc.stdout.fileno(), proc.stderr.fileno()]
+                ret = select.select(reads, [], [], 0.1)[0]
+                
+                for fd in ret:
+                    if fd == proc.stdout.fileno():
+                        line = proc.stdout.readline()
+                        if line:
+                            yield (line, "", None)
+                    if fd == proc.stderr.fileno():
+                        line = proc.stderr.readline()
+                        if line:
+                            yield ("", line, None)
+            
+            # 获取退出码
+            return_code = proc.poll()
+            
+            # 读取剩余输出
+            for line in proc.stdout:
+                yield (line, "", return_code)
+            for line in proc.stderr:
+                yield ("", line, return_code)
+            
+            # 根据退出码生成最终结果
+            if return_code == 0:
+                yield (f"Command completed successfully (exit code: {return_code})\n", "", return_code)
+            else:
+                raise RuntimeError(f"Command failed with exit code: {return_code}")
+                
         except Exception as e:
-            logger.exception("命令执行出错")
-            yield ("", f"命令执行失败: {e}")
+            logger.exception("Command execution error")
+            yield ("", f"Command execution failed: {str(e)}", 1)

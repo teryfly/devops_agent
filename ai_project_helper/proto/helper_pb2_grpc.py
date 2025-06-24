@@ -2,8 +2,8 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 import warnings
-
 from ai_project_helper.proto import helper_pb2 as helper__pb2
+#import helper_pb2 as helper__pb2
 
 GRPC_GENERATED_VERSION = '1.73.0'
 GRPC_VERSION = grpc.__version__
@@ -39,6 +39,11 @@ class AIProjectHelperStub(object):
                 request_serializer=helper__pb2.PlanRequest.SerializeToString,
                 response_deserializer=helper__pb2.ActionFeedback.FromString,
                 _registered_method=True)
+        self.GetPlanThenRun = channel.unary_stream(
+                '/ai_project_helper.AIProjectHelper/GetPlanThenRun',
+                request_serializer=helper__pb2.PlanGenerateRequest.SerializeToString,
+                response_deserializer=helper__pb2.ActionFeedback.FromString,
+                _registered_method=True)
         self.CreateProject = channel.unary_stream(
                 '/ai_project_helper.AIProjectHelper/CreateProject',
                 request_serializer=helper__pb2.ProjectRequest.SerializeToString,
@@ -50,6 +55,12 @@ class AIProjectHelperServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def RunPlan(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetPlanThenRun(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -67,6 +78,11 @@ def add_AIProjectHelperServicer_to_server(servicer, server):
             'RunPlan': grpc.unary_stream_rpc_method_handler(
                     servicer.RunPlan,
                     request_deserializer=helper__pb2.PlanRequest.FromString,
+                    response_serializer=helper__pb2.ActionFeedback.SerializeToString,
+            ),
+            'GetPlanThenRun': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetPlanThenRun,
+                    request_deserializer=helper__pb2.PlanGenerateRequest.FromString,
                     response_serializer=helper__pb2.ActionFeedback.SerializeToString,
             ),
             'CreateProject': grpc.unary_stream_rpc_method_handler(
@@ -101,6 +117,33 @@ class AIProjectHelper(object):
             target,
             '/ai_project_helper.AIProjectHelper/RunPlan',
             helper__pb2.PlanRequest.SerializeToString,
+            helper__pb2.ActionFeedback.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetPlanThenRun(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/ai_project_helper.AIProjectHelper/GetPlanThenRun',
+            helper__pb2.PlanGenerateRequest.SerializeToString,
             helper__pb2.ActionFeedback.FromString,
             options,
             channel_credentials,

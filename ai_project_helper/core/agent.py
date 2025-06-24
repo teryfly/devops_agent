@@ -50,8 +50,26 @@ class Agent:
                 "command": command,
             }
 
+        
             try:
-                for out, err in action.execute_stream():
+                output_gen = action.execute_stream()
+                exit_code = 0  # 默认退出码
+                
+                for result in output_gen:
+                    # 处理不同类型的返回值
+                    if isinstance(result, tuple):
+                        if len(result) == 2:  # 兼容旧版本
+                            out, err = result
+                            exit_code = 0
+                        elif len(result) == 3:
+                            out, err, exit_code = result
+                        else:
+                            out, err, exit_code = "", "Invalid result format", 1
+                    else:  # 处理可能的其他格式
+                        out = result.get("out", "")
+                        err = result.get("err", "")
+                        exit_code = result.get("exit_code", 0)
+                    
                     yield {
                         "action_index": idx,
                         "action_type": action_type,
@@ -59,8 +77,11 @@ class Agent:
                         "status": "running",
                         "output": out or "",
                         "error": err or "",
+                        "command": command,
+                        "exit_code": exit_code
                     }
-
+                
+                # 操作完成后发送成功状态
                 yield {
                     "action_index": idx,
                     "action_type": action_type,
@@ -69,6 +90,7 @@ class Agent:
                     "output": "",
                     "error": "",
                     "command": command,
+                    "exit_code": exit_code
                 }
 
             except Exception as e:
@@ -81,6 +103,7 @@ class Agent:
                     "output": "",
                     "error": str(e),
                     "command": command,
+                    "exit_code": 1  # 非零表示错误
                 }
                 break
     

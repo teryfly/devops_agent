@@ -4,8 +4,8 @@ package ai_project_helper;
 
 service AIProjectHelper {
   rpc RunPlan (PlanRequest) returns (stream ActionFeedback) {}
+  rpc GetPlanThenRun (PlanGenerateRequest) returns (stream ActionFeedback) {}
   rpc CreateProject (ProjectRequest) returns (stream ActionFeedback) {}
-  rpc GetPlanThenRun(PlanGenerateRequest) returns (stream ActionFeedback);
 }
 
 message PlanRequest {
@@ -26,10 +26,12 @@ message ActionFeedback {
   int32 action_index = 1;
   string action_type = 2;
   string step_description = 3;
-  string status = 4; // "pending", "running", "success", "failed"
+  string status = 4;
   string output = 5;
   string error = 6;
   string command = 7;
+  
+  int32 step_index = 8;     // 当前步骤索引
+  int32 total_steps = 9;    // 总步骤数
+  int32 exit_code = 10;     // 新增退出码字段
 }
-
-

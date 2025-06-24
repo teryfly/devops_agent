@@ -17,10 +17,8 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
         self.config = config
         self.agent = Agent(config)
         self.logger = get_logger("server.servicer")
+
     def RunPlan(self, request, context):
-        """
-        gRPC流式接口：接收用户输入的plan_text，按 ------ 拆分后逐步调用LLM构造actions并执行，实时yield反馈
-        """
         plan_text = request.plan_text
         logger.info(f"==================接收到客户端请求==================：\n{plan_text[:88]}...\n =============================================================================================================")
 
@@ -30,7 +28,21 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
         for step_index, step_text in enumerate(task_steps):
             try:
                 for fb in self.agent.run_step_text(step_text, step_index=step_index+1, step_count=step_count):
-                    yield helper_pb2.ActionFeedback(**fb)
+                    # 创建 ActionFeedback 消息时添加新字段
+                    feedback = helper_pb2.ActionFeedback(
+                        action_index=fb.get("action_index", 0),
+                        action_type=fb.get("action_type", ""),
+                        step_description=fb.get("step_description", ""),
+                        status=fb.get("status", ""),
+                        output=fb.get("output", ""),
+                        error=fb.get("error", ""),
+                        command=fb.get("command", ""),
+                        step_index=step_index+1,  # 当前步骤索引
+                        total_steps=step_count,    # 总步骤数
+                        exit_code=fb.get("exit_code", 0)  # 退出码
+                    )
+                    yield feedback
+                    
                     if fb.get("status") == "failed":
                         logger.error(f"第 {step_index+1} 步执行失败，终止后续步骤")
                         return
@@ -38,9 +50,8 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
                 logger.exception(f"第 {step_index+1} 步执行异常")
                 context.set_details(f"Step {step_index+1} execution error: {e}")
                 context.set_code(grpc.StatusCode.INTERNAL)
-                return
-   
- 
+                return        
+            
     # 远程 LLM 生成 plan → 本地 LLM 执行 plan”的链式代理
     def GetPlanThenRun(self, request, context): 
         requirement = request.requirement

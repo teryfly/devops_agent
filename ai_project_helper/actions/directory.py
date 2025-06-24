@@ -16,27 +16,27 @@ class DirectoryAction(BaseAction):
             abs_path = self.safe_abs_path(path, workdir)
             logger.info(f"创建路径: {abs_path}")
         except PermissionError as e:
-            yield ("", str(e))
+            yield ("", str(e), 1)  # 添加退出码
             return
 
         try:
             if command in ("create", "mkdir"):
                 if os.path.exists(abs_path):
-                    yield (f"目录已存在: {abs_path}\n", "")
+                    yield (f"目录已存在: {abs_path}\n", "", 0)
                 else:
                     os.makedirs(abs_path, exist_ok=True)
-                    yield (f"目录创建成功: {abs_path}\n", "")
+                    yield (f"目录创建成功: {abs_path}\n", "", 0)
 
             elif command in ("delete", "rmdir"):
                 if not os.path.exists(abs_path):
-                    yield (f"目录不存在: {abs_path}\n", "")
+                    yield (f"目录不存在: {abs_path}\n", "", 0)
                 else:
                     shutil.rmtree(abs_path)
-                    yield (f"目录删除成功: {abs_path}\n", "")
+                    yield (f"目录删除成功: {abs_path}\n", "", 0)
 
             else:
-                yield ("", f"未知目录操作命令: {command}")
+                yield ("", f"未知目录操作命令: {command}", 1)
 
         except Exception as e:
             logger.exception("目录操作失败")
-            yield ("", f"目录操作失败: {e}")
+            yield ("", f"目录操作失败: {e}", 1)

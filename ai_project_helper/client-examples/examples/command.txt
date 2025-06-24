@@ -1,0 +1,44 @@
+## Installation Steps
+
+### 1. Update package lists
+```bash
+cd /aiWorkDir/formula-back
+```
+
+### 2. Install Python pip (if not already installed)
+```bash
+sudo apt install python3-pip
+```
+------
+### 3. Create a virtual environment (recommended)
+```bash
+python3 -m venv fastapi_env
+source fastapi_env/bin/activate
+```
+------
+### 4. Install FastAPI and Uvicorn (ASGI server)
+```bash
+pip install fastapi uvicorn
+```
+------
+### 5. Verify installation
+Create a test file `main.py`:
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int, q: str = None):
+    return {"item_id": item_id, "q": q}
+```
+
+### 6. Run the FastAPI application
+```bash
+uvicorn main:app --reload
+```
+------

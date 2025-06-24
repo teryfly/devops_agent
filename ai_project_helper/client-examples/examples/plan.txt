@@ -1,5 +1,0 @@
-1. Create a directory `myapp`.
-2. Initialize a Node.js project in `myapp`.
-3. Install express and dotenv as dependencies in `myapp`.
-4. Create a file `myapp/server.js` with a basic Express server.
-5. Start the server using `node myapp/server.js`.

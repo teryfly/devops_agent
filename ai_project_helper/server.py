@@ -75,6 +75,30 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
             )
             response.raise_for_status()
             plan_text = response.json()["choices"][0]["message"]["content"]
+            
+            # 新增：保存LLM生成的plan到文件
+            import os
+            from datetime import datetime
+            
+            # 获取输入文件名（不带路径）
+            input_filename = os.path.basename(request.requirement.split('\n')[0].strip())
+            if not input_filename.endswith('.txt'):
+                input_filename = 'plan.txt'
+            
+            # 创建llm_coding_plans目录
+            plans_dir = "llm_coding_plans"
+            os.makedirs(plans_dir, exist_ok=True)
+            
+            # 生成带时间戳的输出文件名
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H%M")
+            output_filename = f"{os.path.splitext(input_filename)[0]}-({timestamp}).txt"
+            output_path = os.path.join(plans_dir, output_filename)
+            
+            # 写入文件
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(plan_text)
+            logger.info(f"LLM生成的plan已保存到: {output_path}")
+
         except Exception as e:
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(f"LLM-B 调用失败: {e}")
@@ -106,7 +130,7 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
                 logger.exception(f"Step {step_index+1} 执行失败")
                 context.set_code(grpc.StatusCode.INTERNAL)
                 context.set_details(f"执行第 {step_index+1} 步失败: {e}")
-                return
+                return    
        
     def CreateProject(self, request, context):
         steps = request.project_steps

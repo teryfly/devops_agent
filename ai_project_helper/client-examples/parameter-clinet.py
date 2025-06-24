@@ -8,7 +8,7 @@ def main():
         print("请传入txt文件名作为参数")
         return
     
-    plan_path = "examples/"+sys.argv[1]+".txt"
+    plan_path = sys.argv[1]
     with open(plan_path, "r", encoding="utf-8") as f:
         plan_text = f.read()
     

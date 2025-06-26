@@ -3,8 +3,8 @@ import sys
 from datetime import datetime
 from collections import defaultdict
 from ai_project_helper.proto import helper_pb2 as helper_pb2, helper_pb2_grpc
-import re  # 添加正则表达式模块
-import ast  # 添加AST模块用于解析字典字符串
+import re
+import ast
 
 def count_lines_in_file_text(file_text):
     """计算文件内容的行数"""
@@ -17,12 +17,10 @@ def parse_file_edit_description(step_desc):
     解析file_edit操作的描述，提取文件内容并计算行数
     返回格式为 "file_edit: 约x行"
     """
-    # 尝试从描述中提取字典部分
     match = re.search(r'file_edit\(\s*({.*?})\s*\)', step_desc, re.DOTALL)
     if match:
         dict_str = match.group(1)
         try:
-            # 安全解析字典字符串
             params = ast.literal_eval(dict_str)
             if 'file_text' in params:
                 line_count = count_lines_in_file_text(params['file_text'])
@@ -30,8 +28,6 @@ def parse_file_edit_description(step_desc):
                 return f"file_edit({command_type}): 约{line_count}行"
         except (SyntaxError, ValueError):
             pass
-    
-    # 如果解析失败，使用默认简化显示
     return "file_edit: ..."
 
 def truncate_long_text(text, max_length=100):
@@ -41,7 +37,6 @@ def truncate_long_text(text, max_length=100):
     return text
 
 def print_feedback(feedback):
-    """格式化打印反馈信息"""
     # 状态图标
     status_icons = {
         "running": "🔄",
@@ -51,41 +46,16 @@ def print_feedback(feedback):
     }
     icon = status_icons.get(feedback.status.lower(), "❓")
     
-    # 状态标签
-    status_label = {
-        "running": "运行中",
-        "success": "成功",
-        "warning": "警告",
-        "failed": "失败"
-    }.get(feedback.status.lower(), feedback.status.upper())
-
-    # 基础步骤信息 (保留完整格式)
-    base_info = f"Step [{feedback.step_index}/{feedback.total_steps}] - Action[{feedback.action_index+1}] - [{status_label}]"
-
-    # 处理file_edit操作的描述
-    if feedback.action_type == "file_edit":
-        # 从描述中提取参数部分
-        param_match = re.search(r'file_edit\(\s*({.*?})\s*\)', feedback.step_description, re.DOTALL)
-        if param_match:
-            try:
-                import ast
-                params = ast.literal_eval(param_match.group(1))
-                file_text = params.get('file_text', '')
-                command = params.get('command', 'edit')
-                
-                # 计算行数
-                line_count = len(file_text.splitlines()) if file_text else 0
-                action_desc = f"file_edit({command}): 约{line_count}行"
-            except:
-                action_desc = "file_edit: ..."
-        else:
-            action_desc = feedback.step_description
-    else:
-        action_desc = feedback.step_description
+    # 步骤类型：计划还是执行
+    step_type = "📝 计划" if feedback.action_index < 0 else "🔧 执行"
     
-    # 组合完整输出 (保留步骤和动作编号)
-    print(f"{icon} {base_info} {feedback.action_type}: {action_desc}")
+    # 直接使用 step_description 作为描述
+    description = feedback.step_description
     
+    # 组合输出
+    print(f"{icon} {step_type} - {description}")
+    
+    # 如果有命令，打印命令
     if feedback.command:
         print(f"  🖥️ 命令: {feedback.command}")
     
@@ -141,11 +111,13 @@ def print_summary(statistics, duration):
     print("=" * 60)
 
 def main():
-    if len(sys.argv) < 2:
-        print("请传入txt文件名作为参数")
+    if len(sys.argv) < 3:  # 改为需要两个参数
+        print("请传入带路径的txt文件名和项目ID作为参数")
         return
-    
+
     plan_path = sys.argv[1]
+    project_id = sys.argv[2]  # 新增项目ID参数
+    
     with open(plan_path, "r", encoding="utf-8") as f:
         plan_text = f.read()
 
@@ -166,7 +138,7 @@ def main():
 
     with grpc.insecure_channel("localhost:50051") as channel:
         stub = helper_pb2_grpc.AIProjectHelperStub(channel)
-        request = helper_pb2.PlanRequest(plan_text=plan_text)
+        request = helper_pb2.PlanRequest(plan_text=plan_text,project_id=project_id)
         print(f"\n=== 任务: {plan_path} 已提交, 开始执行 ===\n")
 
         try:

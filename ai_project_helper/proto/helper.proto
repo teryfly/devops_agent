@@ -8,18 +8,22 @@ service AIProjectHelper {
   rpc CreateProject (ProjectRequest) returns (stream ActionFeedback) {}
 }
 
+// 修改所有请求消息，添加project_id字段
 message PlanRequest {
   string plan_text = 1;
-}
-
-message ProjectRequest {
-  string project_steps = 1;
+  string project_id = 2;  // 新增项目ID字段
 }
 
 message PlanGenerateRequest {
   string requirement = 1;
   string model = 2;
   string llm_url = 3;
+  string project_id = 4;  // 新增项目ID字段
+}
+
+message ProjectRequest {
+  string project_steps = 1;
+  string project_id = 2;  // 新增项目ID字段
 }
 
 message ActionFeedback {

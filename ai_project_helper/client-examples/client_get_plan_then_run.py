@@ -86,13 +86,16 @@ def print_summary(statistics, duration):
     print("=" * 60)
 
 def main():
-    if len(sys.argv) < 2:
-        print("请传入带路径的txt文件名作为参数")
+    if len(sys.argv) < 3:  # 改为需要两个参数
+        print("请传入带路径的txt文件名和项目ID作为参数")
         return
 
     plan_path = sys.argv[1]
+    project_id = sys.argv[2]  # 新增项目ID参数
+    
     with open(plan_path, "r", encoding="utf-8") as f:
         plan_text = f.read()
+
 
     # 执行统计变量
     statistics = {
@@ -114,7 +117,8 @@ def main():
         request = helper_pb2.PlanGenerateRequest(
             requirement=plan_text,
             model="GPT-4.1",
-            llm_url="http://43.132.224.225:8000/v1/chat/completions"
+            llm_url="http://43.132.224.225:8000/v1/chat/completions",
+            project_id=project_id
         )
         print(f"\n📝 请求生成计划: {plan_path}")
 

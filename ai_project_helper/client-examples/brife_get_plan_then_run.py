@@ -140,11 +140,13 @@ def print_summary(statistics, duration):
     print("=" * 60)
 
 def main():
-    if len(sys.argv) < 2:
-        print("请传入带路径的txt文件名作为参数")
+    if len(sys.argv) < 3:  # 改为需要两个参数
+        print("请传入带路径的txt文件名和项目ID作为参数")
         return
 
     plan_path = sys.argv[1]
+    project_id = sys.argv[2]  # 新增项目ID参数
+    
     with open(plan_path, "r", encoding="utf-8") as f:
         plan_text = f.read()
 
@@ -165,11 +167,14 @@ def main():
 
     with grpc.insecure_channel("localhost:50051") as channel:
         stub = helper_pb2_grpc.AIProjectHelperStub(channel)
+
         request = helper_pb2.PlanGenerateRequest(
-            requirement=plan_text,
-            model="GPT-4.1",
-            llm_url="http://43.132.224.225:8000/v1/chat/completions"
-        )
+        requirement=plan_text,
+        model="GPT-4.1",
+        llm_url="http://43.132.224.225:8000/v1/chat/completions",
+        project_id=project_id  # 添加项目ID
+    )
+
         print(f"\n📝 请求生成计划: {plan_path}")
 
         try:

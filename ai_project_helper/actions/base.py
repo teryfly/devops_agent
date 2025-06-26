@@ -12,17 +12,24 @@ class BaseAction:
     @staticmethod
     def safe_abs_path(path, workdir):
         """
-        安全拼接 path 与 workdir，并防止路径逃逸（如 /etc/passwd）。
+        安全拼接 path 与 workdir，并防止路径逃逸
         """
         workdir = os.path.abspath(workdir)
-
+        
+        # 处理绝对路径
         if os.path.isabs(path):
-            path = path.lstrip("/")  # 例如 "/backend/app" → "backend/app"
-
-        candidate_path = os.path.abspath(os.path.join(workdir, path))
-
+            # 直接使用绝对路径，但进行安全检查
+            candidate_path = os.path.abspath(path)
+        else:
+            # 相对路径：拼接工作目录
+            candidate_path = os.path.abspath(os.path.join(workdir, path))
+        
+        # 安全检查：确保路径在工作目录内
         if not candidate_path.startswith(workdir):
-            raise PermissionError(f"安全警告：不允许访问工作目录之外的路径: {candidate_path}")
-
-        logger.info(f"[safe_abs_path] 输入: {path}, 最终路径: {candidate_path}")
-        return candidate_path
+            raise PermissionError(
+                f"安全警告：不允许访问工作目录之外的路径: {candidate_path}\n"
+                f"工作目录: {workdir}"
+            )
+        
+        logger.info(f"[safe_abs_path] 输入: {path}, 工作目录: {workdir}, 最终路径: {candidate_path}")
+        return candidate_path                       

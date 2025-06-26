@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0chelper.proto\x12\x11\x61i_project_helper\" \n\x0bPlanRequest\x12\x11\n\tplan_text\x18\x01 \x01(\t\"\'\n\x0eProjectRequest\x12\x15\n\rproject_steps\x18\x01 \x01(\t\"\x95\x01\n\x0e\x41\x63tionFeedback\x12\x14\n\x0c\x61\x63tion_index\x18\x01 \x01(\x05\x12\x13\n\x0b\x61\x63tion_type\x18\x02 \x01(\t\x12\x18\n\x10step_description\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x0e\n\x06output\x18\x05 \x01(\t\x12\r\n\x05\x65rror\x18\x06 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x07 \x01(\t2\xbe\x01\n\x0f\x41IProjectHelper\x12P\n\x07RunPlan\x12\x1e.ai_project_helper.PlanRequest\x1a!.ai_project_helper.ActionFeedback\"\x00\x30\x01\x12Y\n\rCreateProject\x12!.ai_project_helper.ProjectRequest\x1a!.ai_project_helper.ActionFeedback\"\x00\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0chelper.proto\x12\x11\x61i_project_helper\"4\n\x0bPlanRequest\x12\x11\n\tplan_text\x18\x01 \x01(\t\x12\x12\n\nproject_id\x18\x02 \x01(\t\"^\n\x13PlanGenerateRequest\x12\x13\n\x0brequirement\x18\x01 \x01(\t\x12\r\n\x05model\x18\x02 \x01(\t\x12\x0f\n\x07llm_url\x18\x03 \x01(\t\x12\x12\n\nproject_id\x18\x04 \x01(\t\";\n\x0eProjectRequest\x12\x15\n\rproject_steps\x18\x01 \x01(\t\x12\x12\n\nproject_id\x18\x02 \x01(\t\"\xd1\x01\n\x0e\x41\x63tionFeedback\x12\x14\n\x0c\x61\x63tion_index\x18\x01 \x01(\x05\x12\x13\n\x0b\x61\x63tion_type\x18\x02 \x01(\t\x12\x18\n\x10step_description\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x0e\n\x06output\x18\x05 \x01(\t\x12\r\n\x05\x65rror\x18\x06 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x07 \x01(\t\x12\x12\n\nstep_index\x18\x08 \x01(\x05\x12\x13\n\x0btotal_steps\x18\t \x01(\x05\x12\x11\n\texit_code\x18\n \x01(\x05\x32\x9f\x02\n\x0f\x41IProjectHelper\x12P\n\x07RunPlan\x12\x1e.ai_project_helper.PlanRequest\x1a!.ai_project_helper.ActionFeedback\"\x00\x30\x01\x12_\n\x0eGetPlanThenRun\x12&.ai_project_helper.PlanGenerateRequest\x1a!.ai_project_helper.ActionFeedback\"\x00\x30\x01\x12Y\n\rCreateProject\x12!.ai_project_helper.ProjectRequest\x1a!.ai_project_helper.ActionFeedback\"\x00\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,11 +32,13 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'helper_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_PLANREQUEST']._serialized_start=35
-  _globals['_PLANREQUEST']._serialized_end=67
-  _globals['_PROJECTREQUEST']._serialized_start=69
-  _globals['_PROJECTREQUEST']._serialized_end=108
-  _globals['_ACTIONFEEDBACK']._serialized_start=111
-  _globals['_ACTIONFEEDBACK']._serialized_end=260
-  _globals['_AIPROJECTHELPER']._serialized_start=263
-  _globals['_AIPROJECTHELPER']._serialized_end=453
+  _globals['_PLANREQUEST']._serialized_end=87
+  _globals['_PLANGENERATEREQUEST']._serialized_start=89
+  _globals['_PLANGENERATEREQUEST']._serialized_end=183
+  _globals['_PROJECTREQUEST']._serialized_start=185
+  _globals['_PROJECTREQUEST']._serialized_end=244
+  _globals['_ACTIONFEEDBACK']._serialized_start=247
+  _globals['_ACTIONFEEDBACK']._serialized_end=456
+  _globals['_AIPROJECTHELPER']._serialized_start=459
+  _globals['_AIPROJECTHELPER']._serialized_end=746
 # @@protoc_insertion_point(module_scope)

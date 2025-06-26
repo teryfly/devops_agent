@@ -13,7 +13,12 @@ class Agent:
     def __init__(self, config):
         self.llm = LLMClient(config)
         self.model = config['llm']['model']
-        self.config = config 
+        self.config = config
+        # 确保工作目录存在
+        working_dir = config.get('working_dir')
+        if working_dir:
+            os.makedirs(working_dir, exist_ok=True)
+            logger.info(f"Agent工作目录设置为: {working_dir}")
 
     def parse_plan(self, plan_text: str):
         raw = self.llm.plan_to_actions(plan_text)

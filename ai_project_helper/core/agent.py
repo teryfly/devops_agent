@@ -49,8 +49,8 @@ class Agent:
                 "error": "",
                 "command": command,
             }
-
-        
+                
+            # 操作完成后发送成功状态        
             try:
                 output_gen = action.execute_stream()
                 exit_code = 0  # 默认退出码
@@ -69,7 +69,10 @@ class Agent:
                         out = result.get("out", "")
                         err = result.get("err", "")
                         exit_code = result.get("exit_code", 0)
-                    
+                    # 过滤大文本输出
+                    out = out or ""
+                    if "file_text" in out and len(out) > 80:
+                        out = "<file_text content filtered>"
                     yield {
                         "action_index": idx,
                         "action_type": action_type,
@@ -173,15 +176,14 @@ class Agent:
             yield fb
             if fb.get("status") == "failed":
                 break
-  
-
-
+    
     def normalize_action_paths(self, action_dict):
         working_dir = os.path.abspath(self.config.get("working_dir", os.getcwd()))
         original_params = action_dict.get("parameters", {})
         new_params = {}
-
+        
         for key, value in original_params.items():
+            # 不再过滤文件内容
             if key in ("path", "file_path", "dir_path") and isinstance(value, str):
                 try:
                     # 🧼 Step 1: 去掉绝对路径前导 "/"
@@ -202,21 +204,23 @@ class Agent:
                     logger.warning(f"[路径清洗失败] {key}: {value} → {e}")
                     new_params[key] = value
             else:
-                new_params[key] = value
+                new_params[key] = value  # 保持文件内容完整
 
-        # ✅ 添加 _config 工作目录配置（供 safe_abs_path 使用）
+        # ✅ 添加 _config 工作目录配置
         new_params["_config"] = {"working_dir": working_dir}
 
         # ✅ 更新回 action_dict
         action_dict["parameters"] = new_params
 
-        # ✅ 同步 step_description，防止客户端和日志看到旧的路径
+        # ✅ 同步 step_description
         action_type = action_dict.get("action_type", "unknown_action")
         pretty_desc = f"{action_type}(\n{pformat(new_params, indent=4)}\n)"
         action_dict["step_description"] = pretty_desc
 
         logger.info(f"[路径清洗后] 参数已更新: {new_params}")
         logger.info(f"[路径清洗后] 描述已更新: {pretty_desc}")
+
+
 
 
 

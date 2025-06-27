@@ -14,8 +14,11 @@ def run_llm_plan_then_execute(agent, config, request, context):
     model = request.model or config['llm']['model']
     llm_url = request.llm_url or config['llm']['api_url']
     api_key = config['llm']['api_key']
-
-    base_name = _get_base_name_from_requirement(requirement)
+    project_id = request.project_id
+    
+    # 获取统一的时间戳（客户端请求时间）
+    request_timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    
     plans_dir = "llm_coding_plans"
     os.makedirs(plans_dir, exist_ok=True)
 
@@ -25,10 +28,10 @@ def run_llm_plan_then_execute(agent, config, request, context):
 
     while current_part < total_parts:
         current_part += 1
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         prompt = _build_prompt(requirement, accumulated_parts, current_part, total_parts)
 
-        request_path = os.path.join(plans_dir, f"{base_name}-Request-{current_part}-of-{total_parts}-{timestamp}.txt")
+        # 请求记录文件名格式：{项目ID}-request-Part-{当前部分}-of-{总部分}-{请求时间戳}.txt
+        request_path = os.path.join(plans_dir, f"{project_id}-request-Part-{current_part}-of-{total_parts}-{request_timestamp}.txt")
         with open(request_path, "w", encoding="utf-8") as f:
             f.write(prompt)
 
@@ -53,7 +56,8 @@ def run_llm_plan_then_execute(agent, config, request, context):
                     total_parts = int(match.group(2))
                     plan_text = plan_text.split('\n', 1)[1].lstrip()
 
-            part_path = os.path.join(plans_dir, f"{base_name}-Part-{current_part}-of-{total_parts}-{timestamp}.txt")
+            # 计划结果文件名格式：{项目ID}-plan-Part-{当前部分}-of-{总部分}-{请求时间戳}.txt
+            part_path = os.path.join(plans_dir, f"{project_id}-plan-Part-{current_part}-of-{total_parts}-{request_timestamp}.txt")
             with open(part_path, "w", encoding="utf-8") as f:
                 f.write(plan_text)
 
@@ -79,7 +83,8 @@ def run_llm_plan_then_execute(agent, config, request, context):
             context.set_details(f"LLM 调用失败: {e}")
             return
 
-    final_path = os.path.join(plans_dir, f"{base_name}-complete-{datetime.now().strftime('%Y%m%d%H%M%S')}.txt")
+    # 完整计划文件名格式：{项目ID}-complete-{请求时间戳}.txt
+    final_path = os.path.join(plans_dir, f"{project_id}-complete-{request_timestamp}.txt")
     with open(final_path, "w", encoding="utf-8") as f:
         f.write(complete_plan_text)
 

@@ -1,8 +1,40 @@
-import grpc
+import os
 import sys
+import re
+import ast
+import logging
 from datetime import datetime
 from collections import defaultdict
-from ai_project_helper.proto import helper_pb2 as helper_pb2, helper_pb2_grpc
+
+def setup_logging():
+    """配置日志系统"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        handlers=[logging.StreamHandler()]
+    )
+    return logging.getLogger("client")
+
+def save_content(directory, filename_prefix, content):
+    """保存内容到指定目录"""
+    os.makedirs(directory, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{filename_prefix}-{timestamp}.txt"
+    path = os.path.join(directory, filename)
+    
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    
+    print(f"✅ 内容已保存至: {path}")
+    return path
+
+def save_plan(project_id, plan_content):
+    """保存计划到 received-plans 目录"""
+    return save_content("received-plans", f"{project_id}-plan", plan_content)
+
+def save_execution_log(project_id, log_content):
+    """保存执行日志到 plan-exe-logs 目录"""
+    return save_content("plan-exe-logs", f"{project_id}-execution", log_content)
 
 def truncate_long_text(text, max_length=200):
     """截断长文本用于显示"""
@@ -10,9 +42,29 @@ def truncate_long_text(text, max_length=200):
         return text[:max_length] + f"... [内容过长，已截断，完整长度: {len(text)}]"
     return text
 
+def count_lines_in_file_text(file_text):
+    """计算文件内容的行数"""
+    if not file_text:
+        return 0
+    return len(file_text.splitlines())
+
+def parse_file_edit_description(step_desc):
+    """解析file_edit操作的描述，提取文件内容并计算行数"""
+    match = re.search(r'file_edit\(\s*({.*?})\s*\)', step_desc, re.DOTALL)
+    if match:
+        dict_str = match.group(1)
+        try:
+            params = ast.literal_eval(dict_str)
+            file_text = params.get('file_text', '')
+            command = params.get('command', '')
+            line_count = count_lines_in_file_text(file_text)
+            return f"file_edit({command}): 约{line_count}行"
+        except (SyntaxError, ValueError):
+            pass
+    return "file_edit: ..."
+
 def print_feedback(feedback):
     """格式化打印反馈信息"""
-    # 状态图标
     status_icons = {
         "running": "🔄",
         "success": "✅",
@@ -85,20 +137,9 @@ def print_summary(statistics, duration):
     
     print("=" * 60)
 
-def main():
-    if len(sys.argv) < 3:  # 改为需要两个参数
-        print("请传入带路径的txt文件名和项目ID作为参数")
-        return
-
-    plan_path = sys.argv[1]
-    project_id = sys.argv[2]  # 新增项目ID参数
-    
-    with open(plan_path, "r", encoding="utf-8") as f:
-        plan_text = f.read()
-
-
-    # 执行统计变量
-    statistics = {
+def init_statistics():
+    """初始化统计数据结构"""
+    return {
         "plan_parts": 0,
         "total_steps": 0,
         "total_actions": 0,
@@ -109,69 +150,3 @@ def main():
         "errors": [],
         "warnings": []
     }
-    
-    start_time = datetime.now()
-
-    with grpc.insecure_channel("localhost:50051") as channel:
-        stub = helper_pb2_grpc.AIProjectHelperStub(channel)
-        request = helper_pb2.PlanGenerateRequest(
-            requirement=plan_text,
-            model="GPT-4.1",
-            llm_url="http://43.132.224.225:8000/v1/chat/completions",
-            project_id=project_id
-        )
-        print(f"\n📝 请求生成计划: {plan_path}")
-
-        try:
-            for feedback in stub.GetPlanThenRun(request):
-                print_feedback(feedback)
-                
-                # 统计计划部分
-                if feedback.action_index < 0:
-                    statistics["plan_parts"] += 1
-                
-                # 只统计执行动作的最终状态
-                if feedback.action_index >= 0 and feedback.status.lower() in ["success", "warning", "failed"]:
-                    statistics["total_actions"] += 1
-                    statistics["action_types"][feedback.action_type] += 1
-                    
-                    # 更新步骤计数
-                    if feedback.step_index > statistics["total_steps"]:
-                        statistics["total_steps"] = feedback.step_index
-                    
-                    # 记录问题信息
-                    if feedback.status.lower() == "warning":
-                        statistics["warning_actions"] += 1
-                        statistics["warnings"].append({
-                            "step": feedback.step_index,
-                            "action": feedback.action_index + 1,
-                            "description": feedback.step_description,
-                            "message": feedback.error or feedback.output
-                        })
-                    elif feedback.status.lower() == "failed":
-                        statistics["failed_actions"] += 1
-                        statistics["errors"].append({
-                            "step": feedback.step_index,
-                            "action": feedback.action_index + 1,
-                            "description": feedback.step_description,
-                            "message": feedback.error
-                        })
-                    else:  # success
-                        statistics["success_actions"] += 1
-
-        except grpc.RpcError as e:
-            print(f"gRPC错误: {e.code()}: {e.details()}")
-            statistics["errors"].append({
-                "step": "通信错误",
-                "action": "N/A",
-                "description": "gRPC通信失败",
-                "message": f"{e.code()}: {e.details()}"
-            })
-            statistics["failed_actions"] += 1
-
-    # 计算执行时间并打印汇总
-    duration = (datetime.now() - start_time).total_seconds()
-    print_summary(statistics, duration)
-
-if __name__ == "__main__":
-    main()

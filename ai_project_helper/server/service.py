@@ -29,37 +29,57 @@ class AIProjectHelperServicer(helper_pb2_grpc.AIProjectHelperServicer):
         self.agent = Agent(config)
         return self.agent
 
-    def RunPlan(self, request, context):
+    def GetPlan(self, request, context):
         try:
             self._init_agent_with_project_dir(request)
-            task_steps = split_plan_into_steps(request.plan_text)
-            step_count = len(task_steps)
+            model = request.model or self.config['llm']['model']
+            llm_url = request.llm_url or self.config['llm']['api_url']
+            api_key = self.config['llm']['api_key']
+            project_id = request.project_id
 
-            for step_index, step_text in enumerate(task_steps):
-                for fb in self.agent.run_step_text(step_text, step_index+1, step_count):
-                    yield helper_pb2.ActionFeedback(**fb)
-                    if fb.get("status") == "failed":
-                        return
+            plan_text = get_plan_from_llm(
+                request.requirement, model, llm_url, api_key, project_id
+            )
+            
+            # 返回完整计划
+            yield helper_pb2.ActionFeedback(
+                action_index=-1,
+                action_type="llm_plan",
+                step_description="完整计划生成完毕",
+                status="success",
+                complete_plan=plan_text  # 关键新增字段
+            )
+            
         except Exception as e:
-            self.logger.exception("RunPlan 处理异常")
+            self.logger.exception("GetPlan 处理异常")
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
 
     def GetPlanThenRun(self, request, context):
         try:
             self._init_agent_with_project_dir(request)
-            yield from run_llm_plan_then_execute(self.agent, self.config, request, context)
+            plan_text = get_plan_from_llm(
+                request.requirement,
+                request.model or self.config['llm']['model'],
+                request.llm_url or self.config['llm']['api_url'],
+                self.config['llm']['api_key'],
+                request.project_id
+            )
+            
+            # 先返回完整计划
+            yield helper_pb2.ActionFeedback(
+                action_index=-1,
+                action_type="llm_plan",
+                step_description="完整计划生成完毕",
+                status="success",
+                complete_plan=plan_text  # 关键新增字段
+            )
+            
+            # 再执行计划
+            for fb in execute_plan_text(self.agent, plan_text, context):
+                yield fb
+                
         except Exception as e:
             self.logger.exception("GetPlanThenRun 处理异常")
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
-
-    def CreateProject(self, request, context):
-        try:
-            self._init_agent_with_project_dir(request)
-            for fb in self.agent.create_project(request.project_steps):
-                yield helper_pb2.ActionFeedback(**fb)
-        except Exception as e:
-            self.logger.exception("CreateProject 失败")
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
+            context.set_details(str(e)) 

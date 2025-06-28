@@ -1,6 +1,5 @@
 import grpc
 import warnings
-
 from ai_project_helper.proto import helper_pb2 as helper__pb2
 
 GRPC_GENERATED_VERSION = '1.73.0'
@@ -34,17 +33,17 @@ class AIProjectHelperStub(object):
         """
         self.RunPlan = channel.unary_stream(
                 '/ai_project_helper.AIProjectHelper/RunPlan',
-                request_serializer=helper__pb2.PlanRequest.SerializeToString,
+                request_serializer=helper__pb2.PlanExecuteRequest.SerializeToString,
+                response_deserializer=helper__pb2.ActionFeedback.FromString,
+                _registered_method=True)
+        self.GetPlan = channel.unary_stream(
+                '/ai_project_helper.AIProjectHelper/GetPlan',
+                request_serializer=helper__pb2.PlanGetRequest.SerializeToString,
                 response_deserializer=helper__pb2.ActionFeedback.FromString,
                 _registered_method=True)
         self.GetPlanThenRun = channel.unary_stream(
                 '/ai_project_helper.AIProjectHelper/GetPlanThenRun',
-                request_serializer=helper__pb2.PlanGenerateRequest.SerializeToString,
-                response_deserializer=helper__pb2.ActionFeedback.FromString,
-                _registered_method=True)
-        self.CreateProject = channel.unary_stream(
-                '/ai_project_helper.AIProjectHelper/CreateProject',
-                request_serializer=helper__pb2.ProjectRequest.SerializeToString,
+                request_serializer=helper__pb2.PlanThenExecuteRequest.SerializeToString,
                 response_deserializer=helper__pb2.ActionFeedback.FromString,
                 _registered_method=True)
 
@@ -58,13 +57,14 @@ class AIProjectHelperServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetPlanThenRun(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+    def GetPlan(self, request, context):
+        """新增方法
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def CreateProject(self, request, context):
+    def GetPlanThenRun(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -75,17 +75,17 @@ def add_AIProjectHelperServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'RunPlan': grpc.unary_stream_rpc_method_handler(
                     servicer.RunPlan,
-                    request_deserializer=helper__pb2.PlanRequest.FromString,
+                    request_deserializer=helper__pb2.PlanExecuteRequest.FromString,
+                    response_serializer=helper__pb2.ActionFeedback.SerializeToString,
+            ),
+            'GetPlan': grpc.unary_stream_rpc_method_handler(
+                    servicer.GetPlan,
+                    request_deserializer=helper__pb2.PlanGetRequest.FromString,
                     response_serializer=helper__pb2.ActionFeedback.SerializeToString,
             ),
             'GetPlanThenRun': grpc.unary_stream_rpc_method_handler(
                     servicer.GetPlanThenRun,
-                    request_deserializer=helper__pb2.PlanGenerateRequest.FromString,
-                    response_serializer=helper__pb2.ActionFeedback.SerializeToString,
-            ),
-            'CreateProject': grpc.unary_stream_rpc_method_handler(
-                    servicer.CreateProject,
-                    request_deserializer=helper__pb2.ProjectRequest.FromString,
+                    request_deserializer=helper__pb2.PlanThenExecuteRequest.FromString,
                     response_serializer=helper__pb2.ActionFeedback.SerializeToString,
             ),
     }
@@ -114,7 +114,34 @@ class AIProjectHelper(object):
             request,
             target,
             '/ai_project_helper.AIProjectHelper/RunPlan',
-            helper__pb2.PlanRequest.SerializeToString,
+            helper__pb2.PlanExecuteRequest.SerializeToString,
+            helper__pb2.ActionFeedback.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetPlan(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/ai_project_helper.AIProjectHelper/GetPlan',
+            helper__pb2.PlanGetRequest.SerializeToString,
             helper__pb2.ActionFeedback.FromString,
             options,
             channel_credentials,
@@ -141,34 +168,7 @@ class AIProjectHelper(object):
             request,
             target,
             '/ai_project_helper.AIProjectHelper/GetPlanThenRun',
-            helper__pb2.PlanGenerateRequest.SerializeToString,
-            helper__pb2.ActionFeedback.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def CreateProject(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
-            target,
-            '/ai_project_helper.AIProjectHelper/CreateProject',
-            helper__pb2.ProjectRequest.SerializeToString,
+            helper__pb2.PlanThenExecuteRequest.SerializeToString,
             helper__pb2.ActionFeedback.FromString,
             options,
             channel_credentials,

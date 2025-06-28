@@ -1,7 +1,16 @@
+# ai_project_helper/client/operations/execute_plan.py
+
 import grpc
+import os
 from datetime import datetime
 from ai_project_helper.proto import helper_pb2, helper_pb2_grpc
-from ..client_utils import save_plan, save_execution_log, print_feedback, init_statistics, print_summary
+from ai_project_helper.client.utils import (
+    save_execution_log,
+    print_feedback,
+    init_statistics,
+    truncate_long_text,
+    print_summary
+)
 
 def run_get_plan_then_execute(request, context):
     """执行获取计划并立即执行操作"""

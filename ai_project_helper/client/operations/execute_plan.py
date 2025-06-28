@@ -1,8 +1,16 @@
+# ai_project_helper/client/operations/execute_plan.py
+
 import grpc
 import os
 from datetime import datetime
 from ai_project_helper.proto import helper_pb2, helper_pb2_grpc
-from ..client_utils import save_execution_log, print_feedback, init_statistics, truncate_long_text
+from ai_project_helper.client.utils import (
+    save_execution_log,
+    print_feedback,
+    init_statistics,
+    truncate_long_text,
+    print_summary
+)
 
 def run_execute_plan(request, context):
     """执行计划操作"""
@@ -19,15 +27,19 @@ def run_execute_plan(request, context):
     with open(request.plan_text, "r", encoding="utf-8") as f:
         plan_text = f.read()
     
-    request.plan_text = plan_text
+    # 创建执行请求
+    execute_request = helper_pb2.PlanExecuteRequest(
+        plan_text=plan_text,
+        project_id=request.project_id
+    )
     
     with grpc.insecure_channel(context["grpc_channel"]) as channel:
         stub = helper_pb2_grpc.AIProjectHelperStub(channel)
         
-        logger.info(f"🚀 开始执行计划: {request.plan_text_path}")
+        logger.info(f"🚀 开始执行计划: {request.plan_text}")
         
         try:
-            for feedback in stub.RunPlan(request):
+            for feedback in stub.RunPlan(execute_request):
                 # 收集完整日志
                 log_entry = f"Step [{feedback.step_index}/{feedback.total_steps}] - {feedback.step_description}\n"
                 if feedback.output:

@@ -3,8 +3,6 @@ syntax = "proto3";
 package ai_project_helper;
 
 service AIProjectHelper {
-
-service AIProjectHelper {
   rpc RunPlan(PlanExecuteRequest) returns (stream ActionFeedback);
   rpc GetPlan(PlanGetRequest) returns (stream ActionFeedback); // 新增方法
   rpc GetPlanThenRun(PlanThenExecuteRequest) returns (stream ActionFeedback);

@@ -1,5 +1,4 @@
 import os
-import sys
 import re
 import ast
 import logging
@@ -98,6 +97,7 @@ def print_feedback(feedback):
     
     print("-" * 60)
 
+# 添加缺失的 print_summary 函数
 def print_summary(statistics, duration):
     """打印执行结果汇总"""
     print("\n" + "=" * 60)
@@ -137,6 +137,7 @@ def print_summary(statistics, duration):
     
     print("=" * 60)
 
+# 添加 init_statistics 函数
 def init_statistics():
     """初始化统计数据结构"""
     return {

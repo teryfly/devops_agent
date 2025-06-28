@@ -1,7 +1,11 @@
 import grpc
 from datetime import datetime
 from ai_project_helper.proto import helper_pb2, helper_pb2_grpc
-from ..client_utils import save_plan, print_feedback, init_statistics
+from ai_project_helper.client.utils import (
+    save_plan, 
+    print_feedback, 
+    init_statistics
+)
 
 def run_get_plan(request, context):
     """执行获取计划操作"""

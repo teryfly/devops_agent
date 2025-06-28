@@ -21,7 +21,7 @@ class BaseAction:
             # 直接使用绝对路径，但进行安全检查
             candidate_path = os.path.abspath(path)
         else:
-            # 相对路径：拼接工作目录
+            # 相对路径：直接拼接工作目录
             candidate_path = os.path.abspath(os.path.join(workdir, path))
         
         # 安全检查：确保路径在工作目录内
@@ -32,4 +32,4 @@ class BaseAction:
             )
         
         logger.info(f"[safe_abs_path] 输入: {path}, 工作目录: {workdir}, 最终路径: {candidate_path}")
-        return candidate_path                       
+        return candidate_path                  

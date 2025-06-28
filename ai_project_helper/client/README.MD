@@ -3,7 +3,7 @@
 #### 1. 获取项目计划
 
 ```
-python main_client.py get-plan \
+python main.py get-plan \
   --project my-project-123 \
   --requirement "创建一个Flask Web应用，包含用户认证功能" \
   --model GPT-4.1 \
@@ -13,7 +13,7 @@ python main_client.py get-plan \
 #### 2. 执行现有计划
 
 ```
-python main_client.py execute-plan \
+python main.py execute-plan \
   --project my-project-123 \
   --plan-file path/to/plan.txt
 ```
@@ -21,7 +21,7 @@ python main_client.py execute-plan \
 #### 3. 获取并执行计划
 
 ```
-python main_client.py get-and-execute \
+python main.py get-and-execute \
   --project my-project-123 \
   --requirement "创建一个Flask Web应用，包含用户认证功能" \
   --model GPT-4.1 \

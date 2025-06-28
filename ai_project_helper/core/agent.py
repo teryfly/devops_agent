@@ -41,7 +41,8 @@ class Agent:
             action = ActionCls(action_type, parameters, base_description)
 
             def format_description(status):
-                return f"Step [{step_index}/{step_count}] - Action[{idx+1}] - [{status}] {action_type}: {base_description}"
+                # 简化描述格式，只保留动作信息
+                return f"Action[{idx+1}] - [{status}] {action_type}: {base_description}"
 
             logger.info(f"🚀 执行 {format_description('running')}")
 
@@ -177,7 +178,10 @@ class Agent:
         except Exception as e:
             raise RuntimeError(f"Step {step_index}/{step_count} 解析失败: {e}")
 
-        for fb in self.execute_actions(actions, step_index=step_index, step_count=step_count):
+        for fb in self.execute_actions(actions):
+            # 添加步骤索引信息
+            fb["step_index"] = step_index
+            fb["total_steps"] = step_count
             yield fb
             if fb.get("status") == "failed":
                 break
@@ -191,20 +195,15 @@ class Agent:
             # 不再过滤文件内容
             if key in ("path", "file_path", "dir_path") and isinstance(value, str):
                 try:
-                    # 🧼 Step 1: 去掉绝对路径前导 "/"
+                    # 如果路径是绝对路径，直接使用（但会经过安全检查）
                     if os.path.isabs(value):
-                        value = value.lstrip("/")
+                        # 保留绝对路径，后续安全函数会处理
+                        new_params[key] = value
+                    else:
+                        # 对于相对路径，直接使用而不做额外处理
+                        new_params[key] = value
 
-                    # 🧼 Step 2: 去掉重复的工作目录名前缀
-                    wd_name = os.path.basename(working_dir)
-                    if value.startswith(wd_name + os.sep):
-                        value = value[len(wd_name) + 1:]
-
-                    # 🧼 Step 3: 规范路径结构（去除多余 .. 或 .）
-                    clean_path = os.path.normpath(value)
-                    new_params[key] = clean_path
-
-                    logger.info(f"[路径清洗] {key}: {value} → {clean_path}")
+                    logger.info(f"[路径清洗] {key}: {value} → {new_params[key]}")
                 except Exception as e:
                     logger.warning(f"[路径清洗失败] {key}: {value} → {e}")
                     new_params[key] = value
@@ -213,17 +212,30 @@ class Agent:
 
         # ✅ 添加 _config 工作目录配置
         new_params["_config"] = {"working_dir": working_dir}
-
+        
         # ✅ 更新回 action_dict
         action_dict["parameters"] = new_params
 
-        # ✅ 同步 step_description
+        # ✅ 简化描述 - 避免过长的文件内容显示
         action_type = action_dict.get("action_type", "unknown_action")
-        pretty_desc = f"{action_type}(\n{pformat(new_params, indent=4)}\n)"
+        
+        # 创建简化的参数描述
+        simplified_params = {}
+        for key, value in new_params.items():
+            if key == "file_text" and value and len(value) > 100:
+                simplified_params[key] = f"<{len(value.splitlines())}行内容>"
+            elif key == "append_text" and value and len(value) > 100:
+                simplified_params[key] = f"<{len(value)}字符内容>"
+            else:
+                simplified_params[key] = value
+        
+        # 使用简化参数创建描述
+        pretty_desc = f"{action_type}({', '.join(f'{k}={repr(v)}' for k, v in simplified_params.items())})"
         action_dict["step_description"] = pretty_desc
 
         logger.info(f"[路径清洗后] 参数已更新: {new_params}")
         logger.info(f"[路径清洗后] 描述已更新: {pretty_desc}")
+        
 
 
 

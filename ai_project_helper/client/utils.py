@@ -32,7 +32,9 @@ def save_plan(project_id, plan_content):
     return save_content("received-plans", f"{project_id}-plan", plan_content)
 
 def save_execution_log(project_id, log_content):
-    """保存执行日志到 plan-exe-logs 目录"""
+    """保存执行日志到 plan-exe-logs 目录，仅当有内容时才保存"""
+    if not log_content.strip():  # 检查日志内容是否为空
+        return None
     return save_content("plan-exe-logs", f"{project_id}-execution", log_content)
 
 def truncate_long_text(text, max_length=200):
@@ -81,7 +83,9 @@ def print_feedback(feedback):
     }.get(feedback.status.lower(), feedback.status.upper())
     
     # 区分计划步骤和执行步骤
-    step_type = "📝 计划" if feedback.action_index < 0 else f"🔧 步骤 {feedback.step_index}/{feedback.total_steps}"
+    #step_type = "📝 计划" if feedback.action_index < 0 else f"🔧 步骤 {feedback.step_index}/{feedback.total_steps}"
+        # 使用反馈中的步骤信息，而不是从描述中解析
+    step_type = f"🔧 步骤 {feedback.step_index}/{feedback.total_steps}"
     
     print(f"{icon} [{status_label}] {step_type} - {feedback.step_description}")
     

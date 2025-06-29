@@ -2,6 +2,7 @@ import os
 import subprocess
 import logging
 import select
+import re
 from .base import BaseAction
 
 logger = logging.getLogger("ai_project_helper.actions.shell")
@@ -9,16 +10,22 @@ logger = logging.getLogger("ai_project_helper.actions.shell")
 def remap_abspath_to_workdir(cmd, workdir):
     """
     将命令字符串中的绝对路径替换为以工作目录为根的路径。
-    仅替换以 / 开头的路径。
+    仅替换以 / 开头的路径，并确保路径不以工作目录开头
     """
-    import re
+    workdir = os.path.abspath(workdir)
+    
     def _replace(match):
         abspath = match.group(0)
+        # 如果路径已经以工作目录开头，则不需要重写
+        if abspath.startswith(workdir):
+            return abspath
+        # 否则重写为工作目录下的路径
         rel_path = abspath.lstrip("/")
         safe_path = os.path.join(workdir, rel_path)
         return safe_path
-    # 简单匹配 /a/b/c 等路径
-    return re.sub(r'(/\w[\w\-/\.]*)', _replace, cmd)
+    
+    # 匹配 /a/b/c 等路径，但排除已包含工作目录的路径
+    return re.sub(r'(?<![\w])(/\w[\w\-/\.]*)', _replace, cmd)
 
 class ShellCommandAction(BaseAction):
     def execute_stream(self):
@@ -29,7 +36,7 @@ class ShellCommandAction(BaseAction):
             yield ("", "Missing command parameter", 1)
             return
 
-        # 路径重写
+        # 路径重写 - 确保不会重复添加工作目录
         command = remap_abspath_to_workdir(command, working_dir)
         logger.info(f"Executing command: {command} (cwd={working_dir})")
         
@@ -84,3 +91,4 @@ class ShellCommandAction(BaseAction):
         except Exception as e:
             logger.exception("Command execution error")
             yield ("", f"Command execution failed: {str(e)}", 1)
+ 

@@ -32,4 +32,4 @@ class BaseAction:
             )
         
         logger.info(f"[safe_abs_path] 输入: {path}, 工作目录: {workdir}, 最终路径: {candidate_path}")
-        return candidate_path                  
+        return candidate_path

@@ -14,6 +14,16 @@ from ai_project_helper.client.operations import (
 )
 from ai_project_helper.proto import helper_pb2
 
+def read_requirement_file(file_path):
+    """读取需求文件内容"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"需求文件 {file_path} 不存在")
+    except Exception as e:
+        raise Exception(f"读取需求文件失败: {str(e)}")
+
 def main():
     # 设置日志
     logger = setup_logging()
@@ -31,7 +41,8 @@ def main():
     # get-plan 命令
     get_plan_parser = subparsers.add_parser("get-plan", parents=[parent_parser], 
                                           help="获取项目计划")
-    get_plan_parser.add_argument("--requirement", required=True, help="项目需求描述")
+    get_plan_parser.add_argument("--requirement-file", required=True, 
+                               help="包含项目需求的文件路径 (如: requirement.txt)")
     get_plan_parser.add_argument("--model", default="GPT-4.1", 
                                help="使用的模型 (默认: GPT-4.1)")
     get_plan_parser.add_argument("--llm-url", 
@@ -46,7 +57,8 @@ def main():
     # get-and-execute 命令
     get_execute_parser = subparsers.add_parser("get-and-execute", parents=[parent_parser], 
                                              help="获取并执行计划")
-    get_execute_parser.add_argument("--requirement", required=True, help="项目需求描述")
+    get_execute_parser.add_argument("--requirement-file", required=True, 
+                                  help="包含项目需求的文件路径 (如: requirement.txt)")
     get_execute_parser.add_argument("--model", default="GPT-4.1", 
                                   help="使用的模型 (默认: GPT-4.1)")
     get_execute_parser.add_argument("--llm-url", 
@@ -66,30 +78,40 @@ def main():
     }
     
     # 根据命令执行相应操作
-    if args.command == "get-plan":
-        request = helper_pb2.PlanGetRequest(
-            requirement=args.requirement,
-            model=args.model,
-            llm_url=args.llm_url,
-            project_id=args.project
-        )
-        get_plan.run_get_plan(request, context)
-        
-    elif args.command == "execute-plan":
-        request = helper_pb2.PlanExecuteRequest(
-            plan_text=args.plan_file,
-            project_id=args.project
-        )
-        execute_plan.run_execute_plan(request, context)
-        
-    elif args.command == "get-and-execute":
-        request = helper_pb2.PlanThenExecuteRequest(
-            requirement=args.requirement,
-            model=args.model,
-            llm_url=args.llm_url,
-            project_id=args.project
-        )
-        get_plan_then_execute.run_get_plan_then_execute(request, context)
+    try:
+        if args.command == "get-plan":
+            requirement_text = read_requirement_file(args.requirement_file)
+            request = helper_pb2.PlanGetRequest(
+                requirement=requirement_text,
+                model=args.model,
+                llm_url=args.llm_url,
+                project_id=args.project
+            )
+            get_plan.run_get_plan(request, context)
+            
+        elif args.command == "execute-plan":
+            request = helper_pb2.PlanExecuteRequest(
+                plan_text=args.plan_file,
+                project_id=args.project
+            )
+            execute_plan.run_execute_plan(request, context)
+            
+        elif args.command == "get-and-execute":
+            requirement_text = read_requirement_file(args.requirement_file)
+            request = helper_pb2.PlanThenExecuteRequest(
+                requirement=requirement_text,
+                model=args.model,
+                llm_url=args.llm_url,
+                project_id=args.project
+            )
+            get_plan_then_execute.run_get_plan_then_execute(request, context)
+    
+    except FileNotFoundError as e:
+        logger.error(str(e))
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"操作失败: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

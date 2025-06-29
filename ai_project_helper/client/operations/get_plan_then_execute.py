@@ -1,10 +1,10 @@
-# ai_project_helper/client/operations/execute_plan.py
-
 import grpc
 import os
 from datetime import datetime
 from ai_project_helper.proto import helper_pb2, helper_pb2_grpc
+
 from ai_project_helper.client.utils import (
+    save_plan,  
     save_execution_log,
     print_feedback,
     init_statistics,
@@ -44,7 +44,7 @@ def run_get_plan_then_execute(request, context):
                 # 保存完整计划
                 if feedback.complete_plan:
                     complete_plan = feedback.complete_plan
-                    save_plan(request.project_id, complete_plan)
+                    save_plan(request.project_id, complete_plan)  # 使用导入的函数
                 
                 # 只统计执行动作的最终状态
                 if feedback.action_index >= 0 and feedback.status.lower() in ["success", "warning", "failed"]:

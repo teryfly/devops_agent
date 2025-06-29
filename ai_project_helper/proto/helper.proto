@@ -3,42 +3,43 @@ syntax = "proto3";
 package ai_project_helper;
 
 service AIProjectHelper {
+  rpc GetPlan(PlanGetRequest) returns (stream ActionFeedback); 
   rpc RunPlan(PlanExecuteRequest) returns (stream ActionFeedback);
-  rpc GetPlan(PlanGetRequest) returns (stream ActionFeedback); // 新增方法
   rpc GetPlanThenRun(PlanThenExecuteRequest) returns (stream ActionFeedback);
  
 }
-
-message PlanExecuteRequest {
-  string plan_text = 1;
-  string project_id = 2;
-}
-
+// 计划生成请求：根据需求文档生成完整的开发计划
 message PlanGetRequest {
-  string requirement = 1;
-  string model = 2;
-  string llm_url = 3;
-  string project_id = 4;
+  string requirement = 1;  // 用户需求描述（自然语言）
+  string model = 2;        // 使用的LLM模型名称（可选）
+  string llm_url = 3;      // LLM API地址（可选）
 }
 
+// 计划执行请求：根据完整的开发计划执行多步骤的开发任务
+message PlanExecuteRequest {
+  string plan_text = 1;    // 完整的开发计划文本
+  string project_id = 2;   // 项目唯一标识符
+}
+
+// 计划生成与执行请求：通过LLM生成开发计划并自动执行
 message PlanThenExecuteRequest {
-  string requirement = 1;
-  string model = 2;
-  string llm_url = 3;
-  string project_id = 4;
+  string requirement = 1;  // 用户需求描述（自然语言）
+  string model = 2;        // 使用的LLM模型名称（可选）
+  string llm_url = 3;      // LLM API地址（可选）
+  string project_id = 4;   // 项目唯一标识符
 }
 
+// 响应消息字段
 message ActionFeedback {
-  int32 action_index = 1;
-  string action_type = 2;
-  string step_description = 3;
-  string status = 4;
-  string output = 5;
-  string error = 6;
-  string command = 7;
-  
-  int32 step_index = 8;     // 当前步骤索引
-  int32 total_steps = 9;    // 总步骤数
-  int32 exit_code = 10;     // 新增退出码字段
-  string complete_plan = 11; 
+  int32 action_index = 1;      // 当前步骤中的动作序号（从0开始）
+  string action_type = 2;      // 动作类型（shell_command/file_edit/directory）
+  string step_description = 3; // 动作描述（可读性强的自然语言描述）
+  string status = 4;           // 执行状态（running/success/warning/failed）
+  string output = 5;           // 动作的标准输出内容
+  string error = 6;            // 动作的错误信息
+  string command = 7;          // 执行的命令（适用于shell_command）
+  int32 step_index = 8;        // 当前步骤在整个计划中的序号（从1开始）
+  int32 total_steps = 9;       // 计划总步骤数
+  int32 exit_code = 10;        // 执行退出码（0=成功，非0=失败）
+  string complete_plan = 11;   // 完整的开发计划（仅用于计划生成操作）
 }

@@ -11,13 +11,18 @@ class BaseAction:
 
     @staticmethod
     def safe_abs_path(path, workdir):
-        """
-        安全拼接 path 与 workdir，并防止路径逃逸
-        """
+        """安全拼接 path 与 workdir，并防止路径逃逸"""
         workdir = os.path.abspath(workdir)
         
         # 处理绝对路径
         if os.path.isabs(path):
+            # 自动重写路径：将根目录替换为工作目录
+            base_dir = os.path.dirname(workdir.rstrip(os.sep))
+            if path.startswith(base_dir):
+                rel_path = os.path.relpath(path, base_dir)
+                path = os.path.join(workdir, rel_path)
+                logger.info(f"[路径重写] 将 {path} 重写为 {path} 相对于工作目录 {workdir}")
+            
             # 直接使用绝对路径，但进行安全检查
             candidate_path = os.path.abspath(path)
         else:

@@ -30,35 +30,31 @@ def main():
     
     # 创建参数解析器
     parser = argparse.ArgumentParser(description="AI项目助手客户端")
-    subparsers = parser.add_subparsers(dest="command", help="可用命令")
+    subparsers = parser.add_subparsers(dest="command", help="可用命令: A(get-plan), B(execute-plan), AB(get-and-execute)")
     
     # 通用参数
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("--grpc", default="localhost:50051", 
                              help="gRPC服务器地址 (默认: localhost:50051)")
-    parent_parser.add_argument("--project", required=True, help="项目ID")
+    parent_parser.add_argument("--N", dest="project", required=True, help="项目ID")
+    parent_parser.add_argument("--F", dest="file_path", required=True, help="文件路径")
     
-    # get-plan 命令
-    get_plan_parser = subparsers.add_parser("get-plan", parents=[parent_parser], 
+    # A: get-plan 命令
+    get_plan_parser = subparsers.add_parser("A", parents=[parent_parser], 
                                           help="获取项目计划")
-    get_plan_parser.add_argument("--requirement-file", required=True, 
-                               help="包含项目需求的文件路径 (如: requirement.txt)")
     get_plan_parser.add_argument("--model", default="GPT-4.1", 
                                help="使用的模型 (默认: GPT-4.1)")
     get_plan_parser.add_argument("--llm-url", 
                                default="http://43.132.224.225:8000/v1/chat/completions", 
                                help="LLM API URL")
     
-    # execute-plan 命令
-    execute_plan_parser = subparsers.add_parser("execute-plan", parents=[parent_parser], 
+    # B: execute-plan 命令
+    execute_plan_parser = subparsers.add_parser("B", parents=[parent_parser], 
                                               help="执行现有计划")
-    execute_plan_parser.add_argument("--plan-file", required=True, help="计划文件路径")
     
-    # get-and-execute 命令
-    get_execute_parser = subparsers.add_parser("get-and-execute", parents=[parent_parser], 
+    # AB: get-and-execute 命令
+    get_execute_parser = subparsers.add_parser("AB", parents=[parent_parser], 
                                              help="获取并执行计划")
-    get_execute_parser.add_argument("--requirement-file", required=True, 
-                                  help="包含项目需求的文件路径 (如: requirement.txt)")
     get_execute_parser.add_argument("--model", default="GPT-4.1", 
                                   help="使用的模型 (默认: GPT-4.1)")
     get_execute_parser.add_argument("--llm-url", 
@@ -79,8 +75,8 @@ def main():
     
     # 根据命令执行相应操作
     try:
-        if args.command == "get-plan":
-            requirement_text = read_requirement_file(args.requirement_file)
+        if args.command == "A":
+            requirement_text = read_requirement_file(args.file_path)
             request = helper_pb2.PlanGetRequest(
                 requirement=requirement_text,
                 model=args.model,
@@ -89,15 +85,15 @@ def main():
             )
             get_plan.run_get_plan(request, context)
             
-        elif args.command == "execute-plan":
+        elif args.command == "B":
             request = helper_pb2.PlanExecuteRequest(
-                plan_text=args.plan_file,
+                plan_text=args.file_path,
                 project_id=args.project
             )
             execute_plan.run_execute_plan(request, context)
             
-        elif args.command == "get-and-execute":
-            requirement_text = read_requirement_file(args.requirement_file)
+        elif args.command == "AB":
+            requirement_text = read_requirement_file(args.file_path)
             request = helper_pb2.PlanThenExecuteRequest(
                 requirement=requirement_text,
                 model=args.model,

@@ -3,6 +3,7 @@ import re
 import requests
 from datetime import datetime
 from ai_project_helper.log_config import get_logger
+import html  # 添加导入
 
 logger = get_logger("server.llm_plan")
 
@@ -37,6 +38,7 @@ def get_plan_from_llm(requirement, model, llm_url, api_key, project_id):
         )
         response.raise_for_status()
         plan_text = response.json()["choices"][0]["message"]["content"]
+        plan_text = html.unescape(plan_text)  # 添加反转义处理
         
         # 处理多部分响应
         if current_part == 1:

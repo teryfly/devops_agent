@@ -1,11 +1,18 @@
 import os
 import shutil
 import logging
+import html  # 添加导入
 from .base import BaseAction
 
 logger = logging.getLogger("ai_project_helper.actions.file_edit")
 
 class FileEditAction(BaseAction):
+    def _unescape_content(self, content):
+        """处理HTML反转义"""
+        if content is None:
+            return ""
+        return html.unescape(content)
+    
     def execute_stream(self):
         path = self.parameters.get("path")
         config = self.parameters.get("_config", {})
@@ -23,6 +30,11 @@ class FileEditAction(BaseAction):
             return
 
         try:
+            # 处理HTML转义字符
+            file_text = self._unescape_content(file_text)
+            new_str = self._unescape_content(new_str)
+            append_text = self._unescape_content(append_text)
+            
             if command == "create":
                 if os.path.exists(abs_path):
                     # 将"文件已存在"视为警告而非错误

@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package ai_project_helper;
+
+service AIProjectHelper {
+    rpc GetPlan (PlanGetRequest) returns (stream ActionFeedback);
+    rpc RunPlan (PlanExecuteRequest) returns (stream ActionFeedback);
+    rpc GetPlanThenRun (PlanThenExecuteRequest) returns (stream ActionFeedback);
+}
+
+message PlanGetRequest {
+    string prompt = 1;
+    string env_config = 2;
+}
+
+message PlanExecuteRequest {
+    string prompt = 1;
+    string env_config = 2;
+}
+
+message PlanThenExecuteRequest {
+    string prompt = 1;
+    string env_config = 2;
+}
+
+message ActionFeedback {
+    int32 action_index = 1;
+    string action_type = 2;
+    string step_description = 3;
+    string status = 4;
+    string output = 5;
+    string error = 6;
+    string command = 7;
+    int32 step_index = 8;
+    int32 total_steps = 9;
+    int32 exit_code = 10;
+    string complete_plan = 11;
+}

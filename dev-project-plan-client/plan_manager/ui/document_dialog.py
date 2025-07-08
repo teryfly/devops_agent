@@ -26,14 +26,12 @@ class DocumentDialog(BaseDialog):
 
     def _setup_components(self):
         """Setup form and actions components"""
-        # 注意内容区parent必须是self.content_frame
         self.form = DocumentForm(
             self.content_frame,
             self.project,
             self.category_manager,
             self.is_editing
         )
-
         self.actions = DocumentActions(
             self.document_manager,
             self.form,
@@ -46,10 +44,7 @@ class DocumentDialog(BaseDialog):
         buttons = []
 
         if self.is_editing:
-            buttons.extend([
-                ("Execute", self.actions.execute_document),
-                ("View History", self.actions.view_history)
-            ])
+            buttons.append(("View History", self.actions.view_history))
 
         buttons.extend([
             (("Update" if self.is_editing else "Save"), self._save_document),

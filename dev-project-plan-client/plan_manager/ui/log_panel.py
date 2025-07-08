@@ -25,6 +25,7 @@ class LogPanel:
         self.current_document_id = document_id
         try:
             logs = self.log_manager.list_logs(document_id)
+            logs = list(reversed(logs))
             self.log_display.display_logs(logs)
         except Exception as e:
             self.log_display.display_error(f"Failed to load logs: {str(e)}")

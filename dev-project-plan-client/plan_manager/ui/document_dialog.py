@@ -26,8 +26,9 @@ class DocumentDialog(BaseDialog):
 
     def _setup_components(self):
         """Setup form and actions components"""
+        # 注意内容区parent必须是self.content_frame
         self.form = DocumentForm(
-            self.main_frame,
+            self.content_frame,
             self.project,
             self.category_manager,
             self.is_editing

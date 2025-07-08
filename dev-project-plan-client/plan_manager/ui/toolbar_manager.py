@@ -21,8 +21,7 @@ class ToolbarManager:
         """Setup action buttons"""
         buttons = [
             ("New Project", self.mtm.new_project),
-            ("New Document", self.mtm.new_document),
-            ("Refresh", self.mtm.refresh_projects)
+            ("Refresh", self.mtm.refresh_projects),
         ]
 
         for text, command in buttons:

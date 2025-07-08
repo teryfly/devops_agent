@@ -1,4 +1,4 @@
-# Error Dialog with copyable message - refactored
+# ui/error_dialog.py
 
 from .base_dialog import BaseDialog
 from .error_display import ErrorDisplay
@@ -14,7 +14,8 @@ class ErrorDialog(BaseDialog):
 
     def _setup_components(self):
         """Setup error display component"""
-        self.error_display = ErrorDisplay(self.main_frame, self.message, self.details)
+        # 内容区用 self.content_frame
+        self.error_display = ErrorDisplay(self.content_frame, self.message, self.details)
 
     def _setup_buttons(self):
         """Setup action buttons"""

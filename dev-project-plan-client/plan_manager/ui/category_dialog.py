@@ -14,10 +14,11 @@ class CategoryDialog(BaseDialog):
 
     def _setup_components(self):
         """Setup category list and form components"""
-        self.category_list = CategoryList(self.main_frame, self.category_manager)
-        self.category_form = CategoryForm(self.main_frame, self.category_manager)
+        # 注意这里 parent 是 self.content_frame，避免和按钮区冲突
+        self.category_list = CategoryList(self.content_frame, self.category_manager)
+        self.category_form = CategoryForm(self.content_frame, self.category_manager)
 
-        # Connect events
+        # 事件连接
         self.category_list.on_category_select = self.category_form.display_category_details
 
     def _setup_buttons(self):

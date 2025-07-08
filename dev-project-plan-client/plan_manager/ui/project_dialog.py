@@ -1,4 +1,4 @@
-# Project management dialog - refactored
+# ui/project_dialog.py
 
 from .base_dialog import BaseDialog
 from .project_form import ProjectForm
@@ -19,7 +19,8 @@ class ProjectDialog(BaseDialog):
 
     def _setup_components(self):
         """Setup form component"""
-        self.form = ProjectForm(self.main_frame, self.project)
+        # 注意这里一定要用 self.content_frame 作为 parent
+        self.form = ProjectForm(self.content_frame, self.project)
 
     def _setup_buttons(self):
         """Setup action buttons"""

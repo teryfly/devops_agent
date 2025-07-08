@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0chelper.proto\x12\x11\x61i_project_helper\"4\n\x0ePlanGetRequest\x12\x0e\n\x06prompt\x18\x01 \x01(\t\x12\x12\n\nenv_config\x18\x02 \x01(\t\"8\n\x12PlanExecuteRequest\x12\x0e\n\x06prompt\x18\x01 \x01(\t\x12\x12\n\nenv_config\x18\x02 \x01(\t\"<\n\x16PlanThenExecuteRequest\x12\x0e\n\x06prompt\x18\x01 \x01(\t\x12\x12\n\nenv_config\x18\x02 \x01(\t\"\xe8\x01\n\x0e\x41\x63tionFeedback\x12\x14\n\x0c\x61\x63tion_index\x18\x01 \x01(\x05\x12\x13\n\x0b\x61\x63tion_type\x18\x02 \x01(\t\x12\x18\n\x10step_description\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x0e\n\x06output\x18\x05 \x01(\t\x12\r\n\x05\x65rror\x18\x06 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x07 \x01(\t\x12\x12\n\nstep_index\x18\x08 \x01(\x05\x12\x13\n\x0btotal_steps\x18\t \x01(\x05\x12\x11\n\texit_code\x18\n \x01(\x05\x12\x15\n\rcomplete_plan\x18\x0b \x01(\t2\x9d\x02\n\x0f\x41IProjectHelper\x12Q\n\x07GetPlan\x12!.ai_project_helper.PlanGetRequest\x1a!.ai_project_helper.ActionFeedback0\x01\x12U\n\x07RunPlan\x12%.ai_project_helper.PlanExecuteRequest\x1a!.ai_project_helper.ActionFeedback0\x01\x12`\n\x0eGetPlanThenRun\x12).ai_project_helper.PlanThenExecuteRequest\x1a!.ai_project_helper.ActionFeedback0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0chelper.proto\x12\x11\x61i_project_helper\"E\n\x0ePlanGetRequest\x12\x13\n\x0brequirement\x18\x01 \x01(\t\x12\r\n\x05model\x18\x02 \x01(\t\x12\x0f\n\x07llm_url\x18\x03 \x01(\t\";\n\x12PlanExecuteRequest\x12\x11\n\tplan_text\x18\x01 \x01(\t\x12\x12\n\nproject_id\x18\x02 \x01(\t\"a\n\x16PlanThenExecuteRequest\x12\x13\n\x0brequirement\x18\x01 \x01(\t\x12\r\n\x05model\x18\x02 \x01(\t\x12\x0f\n\x07llm_url\x18\x03 \x01(\t\x12\x12\n\nproject_id\x18\x04 \x01(\t\"\xe8\x01\n\x0e\x41\x63tionFeedback\x12\x14\n\x0c\x61\x63tion_index\x18\x01 \x01(\x05\x12\x13\n\x0b\x61\x63tion_type\x18\x02 \x01(\t\x12\x18\n\x10step_description\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12\x0e\n\x06output\x18\x05 \x01(\t\x12\r\n\x05\x65rror\x18\x06 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x07 \x01(\t\x12\x12\n\nstep_index\x18\x08 \x01(\x05\x12\x13\n\x0btotal_steps\x18\t \x01(\x05\x12\x11\n\texit_code\x18\n \x01(\x05\x12\x15\n\rcomplete_plan\x18\x0b \x01(\t2\x9d\x02\n\x0f\x41IProjectHelper\x12Q\n\x07GetPlan\x12!.ai_project_helper.PlanGetRequest\x1a!.ai_project_helper.ActionFeedback0\x01\x12U\n\x07RunPlan\x12%.ai_project_helper.PlanExecuteRequest\x1a!.ai_project_helper.ActionFeedback0\x01\x12`\n\x0eGetPlanThenRun\x12).ai_project_helper.PlanThenExecuteRequest\x1a!.ai_project_helper.ActionFeedback0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,13 +32,13 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'helper_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_PLANGETREQUEST']._serialized_start=35
-  _globals['_PLANGETREQUEST']._serialized_end=87
-  _globals['_PLANEXECUTEREQUEST']._serialized_start=89
-  _globals['_PLANEXECUTEREQUEST']._serialized_end=145
-  _globals['_PLANTHENEXECUTEREQUEST']._serialized_start=147
-  _globals['_PLANTHENEXECUTEREQUEST']._serialized_end=207
-  _globals['_ACTIONFEEDBACK']._serialized_start=210
-  _globals['_ACTIONFEEDBACK']._serialized_end=442
-  _globals['_AIPROJECTHELPER']._serialized_start=445
-  _globals['_AIPROJECTHELPER']._serialized_end=730
+  _globals['_PLANGETREQUEST']._serialized_end=104
+  _globals['_PLANEXECUTEREQUEST']._serialized_start=106
+  _globals['_PLANEXECUTEREQUEST']._serialized_end=165
+  _globals['_PLANTHENEXECUTEREQUEST']._serialized_start=167
+  _globals['_PLANTHENEXECUTEREQUEST']._serialized_end=264
+  _globals['_ACTIONFEEDBACK']._serialized_start=267
+  _globals['_ACTIONFEEDBACK']._serialized_end=499
+  _globals['_AIPROJECTHELPER']._serialized_start=502
+  _globals['_AIPROJECTHELPER']._serialized_end=787
 # @@protoc_insertion_point(module_scope)

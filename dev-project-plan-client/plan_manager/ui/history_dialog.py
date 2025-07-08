@@ -1,5 +1,4 @@
-# Document version history dialog - refactored
-
+# ui/history_dialog.py
 from .base_dialog import BaseDialog
 from .history_viewer import HistoryViewer
 
@@ -16,7 +15,8 @@ class HistoryDialog(BaseDialog):
 
     def _setup_components(self):
         """Setup history viewer component"""
-        self.history_viewer = HistoryViewer(self.main_frame, self.document_manager, self.document)
+        # 内容区用 self.content_frame
+        self.history_viewer = HistoryViewer(self.content_frame, self.document_manager, self.document)
 
     def _setup_buttons(self):
         """Setup action buttons"""

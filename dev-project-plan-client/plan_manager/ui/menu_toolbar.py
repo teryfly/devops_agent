@@ -88,38 +88,6 @@ class MenuToolbarManager:
             from ui.error_dialog import show_error
             show_error(self.root, "Category Dialog Error", f"Failed to open category dialog: {str(e)}", e)
 
-    # Document operations
-    def new_document(self):
-        """Create new document"""
-        if not self.main_window.current_project:
-            messagebox.showwarning("Selection", "Please select a project first.")
-            return
-
-        try:
-            from ui.document_dialog import DocumentDialog
-            dialog = DocumentDialog(
-                self.root,
-                self.main_window.document_manager,
-                self.main_window.current_project['id']
-            )
-            if dialog.result:
-                self._refresh_after_document_change()
-        except Exception as e:
-            from ui.error_dialog import show_error
-            show_error(self.root, "New Document Error", f"Failed to create document: {str(e)}", e)
-
-    def edit_document(self):
-        """Edit current document"""
-        self.main_window.component_manager.document_panel.edit_document()
-
-    def delete_document(self):
-        """Delete current document"""
-        self.main_window.component_manager.document_panel.delete_document()
-
-    def execute_document(self):
-        """Execute current document"""
-        self.main_window.component_manager.document_panel.execute_document()
-
     # System operations
     def open_system_config(self):
         """Open system configuration dialog"""
@@ -148,6 +116,7 @@ class MenuToolbarManager:
         self.main_window.refresh_all()
         self.main_window.update_status("Data refreshed")
 
+    # 你可以视需要保留或移除搜索功能
     def search_documents(self):
         """Search documents"""
         search_text = self.toolbar_manager.get_search_text()
@@ -176,6 +145,7 @@ class MenuToolbarManager:
             from ui.error_dialog import show_error
             show_error(self.root, "Search Error", f"Search failed: {str(e)}", e)
 
+    # 保留文档刷新
     def _refresh_after_document_change(self):
         """Refresh UI after document changes"""
         if self.main_window.current_category:

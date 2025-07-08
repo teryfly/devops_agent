@@ -3,7 +3,6 @@
 import grpc
 import warnings
 
-# import helper_pb2 as helper__pb2
 from . import helper_pb2 as helper__pb2
 
 GRPC_GENERATED_VERSION = '1.73.1'

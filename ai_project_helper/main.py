@@ -10,7 +10,19 @@ def serve():
     logger = get_logger("server.main")
     config = load_config()
     
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    # 修正的 keepalive 选项配置
+    options = [
+        ('grpc.keepalive_time_ms', 60000),          # 60秒发送一次keepalive
+        ('grpc.keepalive_timeout_ms', 20000),       # 20秒超时
+        ('grpc.keepalive_permit_without_calls', 1), # 允许无调用时发送keepalive
+        ('grpc.http2.max_pings_without_data', 0),   # 允许无数据时的ping
+    ]
+    
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10),
+        options=options  # 添加这行
+    )
+    
     helper_pb2_grpc.add_AIProjectHelperServicer_to_server(
         AIProjectHelperServicer(config), server
     )

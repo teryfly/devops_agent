@@ -1,16 +1,18 @@
-from tkinter import messagebox, Toplevel, scrolledtext, END, DISABLED, NORMAL
+from tkinter import messagebox
 from threading import Thread
+
+from .cli_execute_log_window import CLIExecuteLogWindow
+from .feedback_format import format_feedback_log
 
 class DocumentActions:
     def __init__(self, document_manager, form, project, document=None):
         self.document_manager = document_manager
-        self.form = form  # 允许为 None
+        self.form = form  # 可以为 None
         self.project = project
         self.document = document
         self.is_editing = document is not None
 
     def save_document(self):
-        """保存文档，校验并入库"""
         if self.form is None:
             messagebox.showerror("错误", "保存功能只可在编辑弹窗使用。")
             return False
@@ -88,23 +90,21 @@ class DocumentActions:
                     print(f"[WARNING] 标签更新失败: {e}")
 
     def execute_document(self):
-        """独立线程执行文档，日志弹窗（非模态），CLI风格，线程结束主动关闭gRPC"""
+        """
+        根据文档所属分类的 Method 字段选择 gRPC 方法执行，弹出 CLI 风格日志窗口
+        """
         doc = self.document
         if not doc:
             messagebox.showerror("执行失败", "未指定要执行的文档。")
             return
 
-        from managers.category_manager import CategoryManager
-        from managers.log_manager import LogManager
-        from grpc_client.client import GrpcClient
-        import time, json
-
-        # 获取文档分类
+        # 1. 获取文档所属分类对象
         category_id = doc.get('category_id')
         category = None
         if category_id and hasattr(self, 'form') and self.form and hasattr(self.form, 'category_manager'):
             category = self.form.category_manager.get_category(category_id)
         elif category_id:
+            from managers.category_manager import CategoryManager
             try:
                 category_manager = CategoryManager()
                 category = category_manager.get_category(category_id)
@@ -114,6 +114,7 @@ class DocumentActions:
             messagebox.showerror("执行失败", "无法获取文档分类。")
             return
 
+        # 2. 获取 Method 字段决定 gRPC 方法
         method = category.get('message_method', 'PlanExecuteRequest')
         prompt_template = category.get('prompt_template', '')
         env_str = self.project.get('dev_environment', '')
@@ -122,10 +123,9 @@ class DocumentActions:
             prompt = prompt_template.replace('{doc}', doc['content']).replace('{env}', env_str)
         grpc_server_addr = self.project.get('grpc_server_address', '127.0.0.1:50051')
 
-        # ==== 关键：提取 LLM 配置 ====
+        # LLM 配置
         llm_model = self.project.get('llm_model', '') if self.project else ''
         llm_url = self.project.get('llm_url', '') if self.project else ''
-        # =============================
 
         doc_name = doc.get("filename", "文档")
         log_win = CLIExecuteLogWindow(self.form.parent if self.form else None, title=f"执行日志（{doc_name}）")
@@ -138,11 +138,12 @@ class DocumentActions:
                 log_id = None
 
                 def feedback_callback(feedback):
+                    # 每一条流反馈都append日志窗口
                     log_text = format_feedback_log(feedback)
                     log_win.show_log(log_text)
                     feedbacks.append(feedback)
 
-                # 构造请求参数
+                # 根据 Method 构造参数
                 request_data = {}
                 if method == "PlanGetRequest":
                     request_data = {
@@ -166,12 +167,13 @@ class DocumentActions:
                     log_win.show_log(f"未知的gRPC方法: {method}", "error")
                     return
 
+                from managers.log_manager import LogManager
                 log_manager = LogManager()
                 doc_id = doc.get('id')
                 log_id = log_manager.create_log(doc_id, len(prompt.encode('utf-8')))
                 log_win.show_log(f"开始执行（方法: {method}）...", "info")
 
-                # 传入 llm_model 和 llm_url 到 GrpcClient
+                from grpc_client.client import GrpcClient
                 client = GrpcClient(grpc_server_addr, llm_model=llm_model, llm_url=llm_url)
                 client.send_request(
                     method_name=method,
@@ -181,6 +183,7 @@ class DocumentActions:
 
                 log_win.show_log("执行完成。", "success")
 
+                import time, json
                 log_manager.update_log(
                     log_id,
                     duration_ms=None,
@@ -190,6 +193,43 @@ class DocumentActions:
                     status="completed" if not any(f.get('status') == 'failed' for f in feedbacks) else "failed",
                     completed_time=time.strftime('%Y-%m-%d %H:%M:%S'),
                 )
+
+                # 自动保存完整计划到目标分类
+                try:
+                    if feedbacks:
+                        last_feedback = feedbacks[-1]
+                        complete_plan_content = last_feedback.get("complete_plan", "")
+                        if complete_plan_content:
+                            # 获取当前文档分类
+                            category_id = doc.get('category_id')
+                            category = None
+                            if category_id:
+                                if hasattr(self, 'form') and self.form and hasattr(self.form, 'category_manager'):
+                                    category = self.form.category_manager.get_category(category_id)
+                                else:
+                                    from managers.category_manager import CategoryManager
+                                    category = CategoryManager().get_category(category_id)
+                            if category:
+                                auto_save_category_id = category.get('auto_save_category_id')
+                                if auto_save_category_id:
+                                    # 获取目标分类
+                                    if hasattr(self, 'form') and self.form and hasattr(self.form, 'category_manager'):
+                                        target_category = self.form.category_manager.get_category(auto_save_category_id)
+                                    else:
+                                        from managers.category_manager import CategoryManager
+                                        target_category = CategoryManager().get_category(auto_save_category_id)
+                                    if target_category:
+                                        self.document_manager.create_document(
+                                            project_id=self.project['id'],
+                                            category_id=target_category['id'],
+                                            filename=doc['filename'],
+                                            content=complete_plan_content,
+                                            source='server'
+                                        )
+                                        log_win.show_log(f"自动保存完整计划到分类『{target_category['name']}』成功。", "success")
+                except Exception as ex:
+                    log_win.show_log(f"自动保存完整计划失败: {ex}", "error")
+
             except Exception as e:
                 log_win.show_log(f"执行出错: {e}", "error")
                 import traceback
@@ -208,59 +248,3 @@ class DocumentActions:
         if self.document:
             from ui.history_dialog import HistoryDialog
             HistoryDialog(self.form.parent if self.form else None, self.document_manager, self.document)
-
-class CLIExecuteLogWindow:
-    """CLI风格执行日志弹窗（非模态），可多开，线程安全"""
-    def __init__(self, parent, title="执行日志"):
-        self.top = Toplevel(parent) if parent else Toplevel()
-        self.top.title(title)
-        self.text = scrolledtext.ScrolledText(self.top, width=100, height=32, state=DISABLED, font=("Consolas", 10))
-        self.text.pack(expand=True, fill='both')
-        self.top.transient(parent)
-        self.top.focus_set()
-        self.show_log("执行准备中...\n")
-
-    def show_log(self, msg, level="info"):
-        self.text.config(state=NORMAL)
-        if isinstance(msg, str):
-            self.text.insert(END, msg + "\n")
-        elif isinstance(msg, dict):
-            self.text.insert(END, str(msg) + "\n")
-        self.text.see(END)
-        self.text.config(state=DISABLED)
-        self.top.update()
-
-def format_feedback_log(feedback):
-    status_icons = {
-        "running": "🔄",
-        "success": "✅",
-        "warning": "⚠️",
-        "failed": "❌"
-    }
-    status_labels = {
-        "running": "运行中",
-        "success": "成功",
-        "warning": "警告",
-        "failed": "失败"
-    }
-    icon = status_icons.get(feedback.get("status", "").lower(), "❓")
-    status_label = status_labels.get(feedback.get("status", "").lower(), feedback.get("status", "").upper())
-
-    if feedback.get("action_index", 0) < 0:
-        step_type = "📝 计划"
-    else:
-        step_type = f"🔧 步骤 {feedback.get('step_index', 1)}/{feedback.get('total_steps', 1)}"
-
-    lines = [f"{icon} [{status_label}] {step_type} - {feedback.get('step_description', '')}"]
-    if feedback.get("output"):
-        out = feedback["output"]
-        if len(out) > 200:
-            out = out[:200] + "...[truncated]"
-        lines.append(f"  📤 输出: {out}")
-    if feedback.get("error"):
-        err = feedback["error"]
-        if len(err) > 200:
-            err = err[:200] + "...[truncated]"
-        lines.append(f"  ⚠️ 错误: {err}")
-    lines.append("-" * 60)
-    return "\n".join(lines)

@@ -22,19 +22,13 @@ class GrpcClient:
     def _connect(self):
         """Establish gRPC connection"""
         try:
-            # Add connection timeout
             options = [
-                ('grpc.keepalive_time_ms', 10000),
-                ('grpc.keepalive_timeout_ms', 5000),
-                ('grpc.keepalive_permit_without_calls', True),
+                ('grpc.keepalive_time_ms', 60000),
+                ('grpc.keepalive_timeout_ms', 20000),
+                ('grpc.keepalive_permit_without_calls', 1),
                 ('grpc.http2.max_pings_without_data', 0),
-                ('grpc.http2.min_time_between_pings_ms', 10000),
-                ('grpc.http2.min_ping_interval_without_data_ms', 300000)
             ]
-
             self.channel = grpc.insecure_channel(self.server_address, options=options)
-
-            # Import generated protobuf modules
             from . import helper_pb2, helper_pb2_grpc
             self.stub = helper_pb2_grpc.AIProjectHelperStub(self.channel)
             logger.info(f"gRPC client connected to {self.server_address}")
@@ -48,24 +42,21 @@ class GrpcClient:
         for attempt in range(self.retry_config['retry_max_count'] + 1):
             try:
                 with self.lock:
-                    # Check and re-establish connection if needed
                     if not self._is_channel_ready():
                         logger.info(f"Re-establishing connection to {self.server_address}")
                         self._connect()
 
-                # Import protobuf modules
                 from . import helper_pb2
 
-                # 合并 LLM 参数，如果未显式传入则用 self.llm_model/llm_url
+                # 合并 LLM 参数
                 if self.llm_model and not request_data.get('model'):
                     request_data['model'] = self.llm_model
                 if self.llm_url and not request_data.get('llm_url'):
                     request_data['llm_url'] = self.llm_url
 
-                # Create request and get stream based on method type
                 request, stream = self._create_request_and_stream(method_name, request_data, helper_pb2)
 
-                # Handle stream response
+                # *** 这里: 每收到一条流消息都立即回调UI ***
                 self._handle_stream_response(stream, callback)
                 return
 
@@ -83,7 +74,6 @@ class GrpcClient:
                     })
                     return
 
-                # Wait before retry
                 wait_time = self.retry_config['retry_wait_seconds']
                 logger.warning(f"Retrying in {wait_time}s... (attempt {attempt + 1}/{self.retry_config['retry_max_count']})")
                 time.sleep(wait_time)
@@ -97,34 +87,28 @@ class GrpcClient:
                 return
 
     def _is_channel_ready(self):
-        """Check if channel is ready"""
         try:
             if not self.channel:
                 return False
-
             state = self.channel._channel.check_connectivity_state(False)
             return state == grpc.ChannelConnectivity.READY
         except:
             return False
 
     def _create_request_and_stream(self, method_name: str, request_data: Dict[str, Any], helper_pb2):
-        """Create request and get stream based on method name"""
-        # 这里会根据 method_name 组装带有 model/llm_url 的消息
         if method_name == "PlanGetRequest":
             request = helper_pb2.PlanGetRequest(
                 requirement=request_data.get('prompt', ''),
                 model=request_data.get('model', ''),
                 llm_url=request_data.get('llm_url', '')
             )
-            stream = self.stub.GetPlan(request, timeout=300)  # 5 min timeout
-
+            stream = self.stub.GetPlan(request, timeout=300)
         elif method_name == "PlanExecuteRequest":
             request = helper_pb2.PlanExecuteRequest(
                 plan_text=request_data.get('prompt', ''),
                 project_id=request_data.get('project_id', '')
             )
-            stream = self.stub.RunPlan(request, timeout=600)  # 10 min timeout
-
+            stream = self.stub.RunPlan(request, timeout=600)
         elif method_name == "PlanThenExecuteRequest":
             request = helper_pb2.PlanThenExecuteRequest(
                 requirement=request_data.get('prompt', ''),
@@ -132,8 +116,7 @@ class GrpcClient:
                 llm_url=request_data.get('llm_url', ''),
                 project_id=request_data.get('project_id', '')
             )
-            stream = self.stub.GetPlanThenRun(request, timeout=900)  # 15 min timeout
-
+            stream = self.stub.GetPlanThenRun(request, timeout=900)
         else:
             raise ValueError(f"Unknown gRPC method: {method_name}")
 
@@ -143,7 +126,7 @@ class GrpcClient:
         """Handle streaming response from gRPC server"""
         try:
             for response in stream:
-                # Convert protobuf response to dictionary
+                # *** 不管是进度、状态、plan，都立即推给callback/UI ***
                 feedback_dict = {
                     'action_index': response.action_index,
                     'action_type': response.action_type,
@@ -157,11 +140,7 @@ class GrpcClient:
                     'exit_code': response.exit_code,
                     'complete_plan': response.complete_plan
                 }
-
-                # Add timestamp for logging
                 feedback_dict['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
-
-                # Call callback with feedback
                 callback(feedback_dict)
 
         except grpc.RpcError as e:
@@ -183,16 +162,11 @@ class GrpcClient:
             })
 
     def test_connection(self) -> bool:
-        """Test gRPC connection with timeout"""
         try:
             with self.lock:
-                # Try to establish connection if not already connected
                 if not self._is_channel_ready():
                     self._connect()
-
-                # Test with a quick connectivity check
                 try:
-                    # Wait for channel to be ready with timeout
                     grpc.channel_ready_future(self.channel).result(timeout=5.0)
                     return True
                 except grpc.FutureTimeoutError:
@@ -204,11 +178,9 @@ class GrpcClient:
             return False
 
     def format_prompt(self, template: str, doc_content: str, env_config: str) -> str:
-        """Format prompt template with document content and environment config"""
         return template.replace('{doc}', doc_content).replace('{env}', env_config)
 
     def close(self):
-        """Close gRPC connection"""
         try:
             if self.channel:
                 self.channel.close()

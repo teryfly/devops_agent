@@ -12,8 +12,8 @@ def serve():
     
     # 修正的 keepalive 选项配置
     options = [
-        ('grpc.keepalive_time_ms', 60000),          # 60秒发送一次keepalive
-        ('grpc.keepalive_timeout_ms', 20000),       # 20秒超时
+        ('grpc.keepalive_time_ms', 30000),          # 30秒发送一次keepalive
+        ('grpc.keepalive_timeout_ms', 120000),       # 120秒超时
         ('grpc.keepalive_permit_without_calls', 1), # 允许无调用时发送keepalive
         ('grpc.http2.max_pings_without_data', 0),   # 允许无数据时的ping
     ]

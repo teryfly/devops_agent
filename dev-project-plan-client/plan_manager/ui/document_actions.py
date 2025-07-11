@@ -138,7 +138,6 @@ class DocumentActions:
                 log_id = None
 
                 def feedback_callback(feedback):
-                    # 每一条流反馈都append日志窗口
                     log_text = format_feedback_log(feedback)
                     log_win.show_log(log_text)
                     feedbacks.append(feedback)
@@ -194,41 +193,46 @@ class DocumentActions:
                     completed_time=time.strftime('%Y-%m-%d %H:%M:%S'),
                 )
 
-                # 自动保存完整计划到目标分类
+                # --------- 修正版：遍历所有feedbacks，找到complete_plan ---------
                 try:
-                    if feedbacks:
-                        last_feedback = feedbacks[-1]
-                        complete_plan_content = last_feedback.get("complete_plan", "")
-                        if complete_plan_content:
-                            # 获取当前文档分类
-                            category_id = doc.get('category_id')
-                            category = None
-                            if category_id:
+                    # 获取第一个非空complete_plan内容
+                    complete_plan_content = None
+                    for fb in feedbacks:
+                        c = fb.get("complete_plan", "")
+                        if c:
+                            complete_plan_content = c
+                            break
+                    if complete_plan_content:
+                        # 获取当前文档分类
+                        category_id = doc.get('category_id')
+                        category = None
+                        if category_id:
+                            if hasattr(self, 'form') and self.form and hasattr(self.form, 'category_manager'):
+                                category = self.form.category_manager.get_category(category_id)
+                            else:
+                                from managers.category_manager import CategoryManager
+                                category = CategoryManager().get_category(category_id)
+                        if category:
+                            auto_save_category_id = category.get('auto_save_category_id')
+                            if auto_save_category_id:
+                                # 获取目标分类
                                 if hasattr(self, 'form') and self.form and hasattr(self.form, 'category_manager'):
-                                    category = self.form.category_manager.get_category(category_id)
+                                    target_category = self.form.category_manager.get_category(auto_save_category_id)
                                 else:
                                     from managers.category_manager import CategoryManager
-                                    category = CategoryManager().get_category(category_id)
-                            if category:
-                                auto_save_category_id = category.get('auto_save_category_id')
-                                if auto_save_category_id:
-                                    # 获取目标分类
-                                    if hasattr(self, 'form') and self.form and hasattr(self.form, 'category_manager'):
-                                        target_category = self.form.category_manager.get_category(auto_save_category_id)
-                                    else:
-                                        from managers.category_manager import CategoryManager
-                                        target_category = CategoryManager().get_category(auto_save_category_id)
-                                    if target_category:
-                                        self.document_manager.create_document(
-                                            project_id=self.project['id'],
-                                            category_id=target_category['id'],
-                                            filename=doc['filename'],
-                                            content=complete_plan_content,
-                                            source='server'
-                                        )
-                                        log_win.show_log(f"自动保存完整计划到分类『{target_category['name']}』成功。", "success")
+                                    target_category = CategoryManager().get_category(auto_save_category_id)
+                                if target_category:
+                                    self.document_manager.create_document(
+                                        project_id=self.project['id'],
+                                        category_id=target_category['id'],
+                                        filename=doc['filename'],
+                                        content=complete_plan_content,
+                                        source='server'
+                                    )
+                                    log_win.show_log(f"自动保存完整计划到分类『{target_category['name']}』成功。", "success")
                 except Exception as ex:
                     log_win.show_log(f"自动保存完整计划失败: {ex}", "error")
+                # ------------------------------------------------------------
 
             except Exception as e:
                 log_win.show_log(f"执行出错: {e}", "error")

@@ -23,8 +23,8 @@ class GrpcClient:
         """Establish gRPC connection"""
         try:
             options = [
-                ('grpc.keepalive_time_ms', 60000),
-                ('grpc.keepalive_timeout_ms', 20000),
+                ('grpc.keepalive_time_ms', 30000),
+                ('grpc.keepalive_timeout_ms', 120000),
                 ('grpc.keepalive_permit_without_calls', 1),
                 ('grpc.http2.max_pings_without_data', 0),
             ]

@@ -16,6 +16,8 @@ class ProjectForm:
         self.name_var = tk.StringVar()
         self.env_var = tk.StringVar()
         self.grpc_var = tk.StringVar(value="192.168.120.238:50051")
+        self.llm_model_var = tk.StringVar()
+        self.llm_url_var = tk.StringVar()
 
     def _setup_widgets(self):
         form_builder = FormBuilder(self.parent)
@@ -33,19 +35,26 @@ class ProjectForm:
             env_combo.current(0)
 
         form_builder.add_entry("gRPC Server Address", self.grpc_var, width=40)
+        form_builder.add_entry("LLM Model Name", self.llm_model_var, width=40)  # 新增 LLM模型名
+        form_builder.add_entry("LLM API Address", self.llm_url_var, width=40)  # 新增 LLM API地址
+
         self.parent.columnconfigure(1, weight=1)
 
     def load_project_data(self, project):
         if project:
-            self.name_var.set(project['name'])
-            self.env_var.set(project['dev_environment'])
-            self.grpc_var.set(project['grpc_server_address'])
+            self.name_var.set(project.get('name', ''))
+            self.env_var.set(project.get('dev_environment', ''))
+            self.grpc_var.set(project.get('grpc_server_address', ''))
+            self.llm_model_var.set(project.get('llm_model', ''))
+            self.llm_url_var.set(project.get('llm_url', ''))
 
     def get_form_data(self):
         return {
             'name': self.name_var.get().strip(),
             'env': self.env_var.get().strip(),
-            'grpc': self.grpc_var.get().strip()
+            'grpc': self.grpc_var.get().strip(),
+            'llm_model': self.llm_model_var.get().strip(),
+            'llm_url': self.llm_url_var.get().strip()
         }
 
     def validate_form(self):
@@ -59,6 +68,7 @@ class ProjectForm:
         if not data['grpc']:
             messagebox.showerror("Validation Error", "gRPC server address is required!")
             return False
+        # LLM 字段可以为空，不强制校验
         return True
 
     def save_project(self, project_manager):
@@ -71,13 +81,18 @@ class ProjectForm:
                     self.project['id'],
                     name=data['name'],
                     dev_environment=data['env'],
-                    grpc_server_address=data['grpc']
+                    grpc_server_address=data['grpc'],
+                    llm_model=data.get('llm_model'),
+                    llm_url=data.get('llm_url')
                 )
                 if not success:
                     messagebox.showerror("Update Error", "Failed to update project!")
                     return False
             else:
-                project_id = project_manager.create_project(data['name'], data['env'], data['grpc'])
+                project_id = project_manager.create_project(
+                    data['name'], data['env'], data['grpc'],
+                    data.get('llm_model'), data.get('llm_url')
+                )
                 if not project_id:
                     messagebox.showerror("Create Error", "Failed to create project!")
                     return False

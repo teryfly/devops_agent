@@ -102,3 +102,6 @@ INSERT INTO system_config (config_key, config_value, description) VALUES
 ('retry_wait_seconds', '60', 'Retry wait time (seconds)'),
 ('log_level', 'INFO', 'Log level')
 ON DUPLICATE KEY UPDATE config_key=config_key;
+
+ALTER TABLE `projects` ADD COLUMN `llm_model` VARCHAR(128) DEFAULT NULL;
+ALTER TABLE `projects` ADD COLUMN `llm_url` VARCHAR(255) DEFAULT NULL;

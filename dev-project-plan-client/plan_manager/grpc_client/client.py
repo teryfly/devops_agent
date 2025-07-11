@@ -8,11 +8,13 @@ from config import ConfigManager
 logger = logging.getLogger(__name__)
 
 class GrpcClient:
-    def __init__(self, server_address: str):
+    def __init__(self, server_address: str, llm_model: str = None, llm_url: str = None):
         self.server_address = server_address
         self.channel = None
         self.stub = None
         self.lock = threading.Lock()
+        self.llm_model = llm_model
+        self.llm_url = llm_url
         self._connect()
         config = ConfigManager()
         self.retry_config = config.get_retry_config()
@@ -29,9 +31,9 @@ class GrpcClient:
                 ('grpc.http2.min_time_between_pings_ms', 10000),
                 ('grpc.http2.min_ping_interval_without_data_ms', 300000)
             ]
-            
+
             self.channel = grpc.insecure_channel(self.server_address, options=options)
-            
+
             # Import generated protobuf modules
             from . import helper_pb2, helper_pb2_grpc
             self.stub = helper_pb2_grpc.AIProjectHelperStub(self.channel)
@@ -54,9 +56,15 @@ class GrpcClient:
                 # Import protobuf modules
                 from . import helper_pb2
 
+                # 合并 LLM 参数，如果未显式传入则用 self.llm_model/llm_url
+                if self.llm_model and not request_data.get('model'):
+                    request_data['model'] = self.llm_model
+                if self.llm_url and not request_data.get('llm_url'):
+                    request_data['llm_url'] = self.llm_url
+
                 # Create request and get stream based on method type
                 request, stream = self._create_request_and_stream(method_name, request_data, helper_pb2)
-                
+
                 # Handle stream response
                 self._handle_stream_response(stream, callback)
                 return
@@ -64,9 +72,9 @@ class GrpcClient:
             except grpc.RpcError as e:
                 error_code = e.code()
                 error_details = e.details()
-                
+
                 logger.error(f"gRPC error on attempt {attempt + 1}: {error_code} - {error_details}")
-                
+
                 if attempt == self.retry_config['retry_max_count']:
                     callback({
                         'error': f"gRPC request failed after {attempt + 1} attempts: {error_details}",
@@ -93,7 +101,7 @@ class GrpcClient:
         try:
             if not self.channel:
                 return False
-            
+
             state = self.channel._channel.check_connectivity_state(False)
             return state == grpc.ChannelConnectivity.READY
         except:
@@ -101,33 +109,34 @@ class GrpcClient:
 
     def _create_request_and_stream(self, method_name: str, request_data: Dict[str, Any], helper_pb2):
         """Create request and get stream based on method name"""
+        # 这里会根据 method_name 组装带有 model/llm_url 的消息
         if method_name == "PlanGetRequest":
             request = helper_pb2.PlanGetRequest(
                 requirement=request_data.get('prompt', ''),
-                model=request_data.get('model', 'default'),
+                model=request_data.get('model', ''),
                 llm_url=request_data.get('llm_url', '')
             )
-            stream = self.stub.GetPlan(request, timeout=300)  # 5 minute timeout
-            
+            stream = self.stub.GetPlan(request, timeout=300)  # 5 min timeout
+
         elif method_name == "PlanExecuteRequest":
             request = helper_pb2.PlanExecuteRequest(
                 plan_text=request_data.get('prompt', ''),
                 project_id=request_data.get('project_id', '')
             )
-            stream = self.stub.RunPlan(request, timeout=600)  # 10 minute timeout
-            
+            stream = self.stub.RunPlan(request, timeout=600)  # 10 min timeout
+
         elif method_name == "PlanThenExecuteRequest":
             request = helper_pb2.PlanThenExecuteRequest(
                 requirement=request_data.get('prompt', ''),
-                model=request_data.get('model', 'default'),
+                model=request_data.get('model', ''),
                 llm_url=request_data.get('llm_url', ''),
                 project_id=request_data.get('project_id', '')
             )
-            stream = self.stub.GetPlanThenRun(request, timeout=900)  # 15 minute timeout
-            
+            stream = self.stub.GetPlanThenRun(request, timeout=900)  # 15 min timeout
+
         else:
             raise ValueError(f"Unknown gRPC method: {method_name}")
-        
+
         return request, stream
 
     def _handle_stream_response(self, stream, callback: Callable[[Dict[str, Any]], None]) -> None:
@@ -148,13 +157,13 @@ class GrpcClient:
                     'exit_code': response.exit_code,
                     'complete_plan': response.complete_plan
                 }
-                
+
                 # Add timestamp for logging
                 feedback_dict['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
-                
+
                 # Call callback with feedback
                 callback(feedback_dict)
-                
+
         except grpc.RpcError as e:
             error_code = e.code()
             error_details = e.details()
@@ -180,7 +189,7 @@ class GrpcClient:
                 # Try to establish connection if not already connected
                 if not self._is_channel_ready():
                     self._connect()
-                
+
                 # Test with a quick connectivity check
                 try:
                     # Wait for channel to be ready with timeout
@@ -189,7 +198,7 @@ class GrpcClient:
                 except grpc.FutureTimeoutError:
                     logger.warning("gRPC connection test timed out")
                     return False
-                    
+
         except Exception as e:
             logger.error(f"Connection test failed: {e}")
             return False

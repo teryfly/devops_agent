@@ -8,17 +8,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.connection import get_connection
 
 class ProjectManager:
-    def create_project(self, name, dev_environment, grpc_address):
+    def create_project(self, name, dev_environment, grpc_address, llm_model=None, llm_url=None):
         sql = """
-            INSERT INTO projects (name, dev_environment, grpc_server_address)
-            VALUES (%s, %s, %s)
+            INSERT INTO projects (name, dev_environment, grpc_server_address, llm_model, llm_url)
+            VALUES (%s, %s, %s, %s, %s)
         """
         conn = get_connection()
         if not conn:
             raise Exception("Database connection failed")
         try:
             with conn.cursor() as cur:
-                cur.execute(sql, (name, dev_environment, grpc_address))
+                cur.execute(sql, (name, dev_environment, grpc_address, llm_model, llm_url))
                 return cur.lastrowid
         finally:
             conn.close()
@@ -26,16 +26,16 @@ class ProjectManager:
     def update_project(self, project_id, **kwargs):
         if not kwargs:
             return False
-            
+
         fields = []
         values = []
         for k, v in kwargs.items():
             fields.append(f"`{k}`=%s")
             values.append(v)
-        
+
         sql = f"UPDATE projects SET {', '.join(fields)} WHERE id=%s"
         values.append(project_id)
-        
+
         conn = get_connection()
         if not conn:
             return False

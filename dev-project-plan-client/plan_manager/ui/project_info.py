@@ -15,7 +15,7 @@ class ProjectInfo:
 
         self.project_info_text = tk.Text(
             info_frame,
-            height=8,
+            height=10,
             wrap=tk.WORD,
             state=tk.DISABLED,
             font=("Arial", 9)
@@ -42,10 +42,14 @@ class ProjectInfo:
 
     def _format_project_info(self, project):
         """Format project information for display"""
-        info = f"ID: {project['id']}\n"
-        info += f"Name: {project['name']}\n"
-        info += f"Environment: {project['dev_environment']}\n"
-        info += f"gRPC Server: {project['grpc_server_address']}\n"
-        info += f"Created: {project['created_time']}\n"
-        info += f"Updated: {project['updated_time']}"
-        return info
+        info = []
+        info.append(f"ID: {project.get('id', '')}")
+        info.append(f"Name: {project.get('name', '')}")
+        info.append(f"Environment: {project.get('dev_environment', '')}")
+        info.append(f"gRPC Server: {project.get('grpc_server_address', '')}")
+        # 使用数据库字段名
+        info.append(f"LLM Model Name: {project.get('llm_model', '')}")
+        info.append(f"LLM Model Address: {project.get('llm_url', '')}")
+        info.append(f"Created: {project.get('created_time', '')}")
+        info.append(f"Updated: {project.get('updated_time', '')}")
+        return "\n".join(info)

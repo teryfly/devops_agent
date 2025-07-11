@@ -122,6 +122,11 @@ class DocumentActions:
             prompt = prompt_template.replace('{doc}', doc['content']).replace('{env}', env_str)
         grpc_server_addr = self.project.get('grpc_server_address', '127.0.0.1:50051')
 
+        # ==== 关键：提取 LLM 配置 ====
+        llm_model = self.project.get('llm_model', '') if self.project else ''
+        llm_url = self.project.get('llm_url', '') if self.project else ''
+        # =============================
+
         doc_name = doc.get("filename", "文档")
         log_win = CLIExecuteLogWindow(self.form.parent if self.form else None, title=f"执行日志（{doc_name}）")
         log_win.show_log(f"连接 gRPC 服务: {grpc_server_addr}")
@@ -138,11 +143,12 @@ class DocumentActions:
                     feedbacks.append(feedback)
 
                 # 构造请求参数
+                request_data = {}
                 if method == "PlanGetRequest":
                     request_data = {
                         'prompt': prompt,
-                        'model': '',
-                        'llm_url': '',
+                        'model': llm_model,
+                        'llm_url': llm_url,
                     }
                 elif method == "PlanExecuteRequest":
                     request_data = {
@@ -152,8 +158,8 @@ class DocumentActions:
                 elif method == "PlanThenExecuteRequest":
                     request_data = {
                         'prompt': prompt,
-                        'model': '',
-                        'llm_url': '',
+                        'model': llm_model,
+                        'llm_url': llm_url,
                         'project_id': str(self.project['id'])
                     }
                 else:
@@ -165,7 +171,8 @@ class DocumentActions:
                 log_id = log_manager.create_log(doc_id, len(prompt.encode('utf-8')))
                 log_win.show_log(f"开始执行（方法: {method}）...", "info")
 
-                client = GrpcClient(grpc_server_addr)
+                # 传入 llm_model 和 llm_url 到 GrpcClient
+                client = GrpcClient(grpc_server_addr, llm_model=llm_model, llm_url=llm_url)
                 client.send_request(
                     method_name=method,
                     request_data=request_data,

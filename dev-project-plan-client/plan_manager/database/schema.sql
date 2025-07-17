@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS projects (
     created_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+ALTER TABLE `projects` ADD COLUMN `llm_model` VARCHAR(64) DEFAULT NULL;
+ALTER TABLE `projects` ADD COLUMN `llm_url` VARCHAR(128) DEFAULT NULL;
 
 -- Plan Categories Table
 CREATE TABLE IF NOT EXISTS plan_categories (
@@ -27,7 +29,7 @@ CREATE TABLE IF NOT EXISTS plan_documents (
     filename VARCHAR(255) NOT NULL,
     content LONGTEXT NOT NULL,
     version INT NOT NULL DEFAULT 1,
-    source ENUM('user', 'server') NOT NULL DEFAULT 'user',
+    source ENUM('user', 'server','chat') NOT NULL DEFAULT 'user',
     related_log_id INT NULL COMMENT 'Related execution log ID',
     created_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -103,5 +105,26 @@ INSERT INTO system_config (config_key, config_value, description) VALUES
 ('log_level', 'INFO', 'Log level')
 ON DUPLICATE KEY UPDATE config_key=config_key;
 
-ALTER TABLE `projects` ADD COLUMN `llm_model` VARCHAR(128) DEFAULT NULL;
-ALTER TABLE `projects` ADD COLUMN `llm_url` VARCHAR(255) DEFAULT NULL;
+-- Conversations and Messages Tables
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id VARCHAR(64) PRIMARY KEY,
+    system_prompt TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    conversation_id VARCHAR(64),
+    role VARCHAR(32),
+    content TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+
+ALTER TABLE conversations
+ADD COLUMN project_id INT NOT NULL DEFAULT 0
+ADD COLUMN name VARCHAR(32) DEFAULT NULL COMMENT '会话名称',
+ADD COLUMN model VARCHAR(64) DEFAULT NULL COMMENT '使用的模型名称';
+
+

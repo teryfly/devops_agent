@@ -23,9 +23,9 @@ class GrpcClient:
         """Establish gRPC connection"""
         try:
             options = [
-                ('grpc.keepalive_time_ms', 30000),
-                ('grpc.keepalive_timeout_ms', 120000),
-                ('grpc.keepalive_permit_without_calls', 1),
+                ('grpc.keepalive_time_ms', 120000),
+             ('grpc.keepalive_timeout_ms', 3600000),
+                ('grpc.keepalive_permit_without_calls', 0),
                 ('grpc.http2.max_pings_without_data', 0),
             ]
             self.channel = grpc.insecure_channel(self.server_address, options=options)
@@ -102,13 +102,13 @@ class GrpcClient:
                 model=request_data.get('model', ''),
                 llm_url=request_data.get('llm_url', '')
             )
-            stream = self.stub.GetPlan(request, timeout=300)
+            stream = self.stub.GetPlan(request, timeout=30000)
         elif method_name == "PlanExecuteRequest":
             request = helper_pb2.PlanExecuteRequest(
                 plan_text=request_data.get('prompt', ''),
                 project_id=request_data.get('project_id', '')
             )
-            stream = self.stub.RunPlan(request, timeout=600)
+            stream = self.stub.RunPlan(request, timeout=60000)
         elif method_name == "PlanThenExecuteRequest":
             request = helper_pb2.PlanThenExecuteRequest(
                 requirement=request_data.get('prompt', ''),
@@ -116,7 +116,7 @@ class GrpcClient:
                 llm_url=request_data.get('llm_url', ''),
                 project_id=request_data.get('project_id', '')
             )
-            stream = self.stub.GetPlanThenRun(request, timeout=900)
+            stream = self.stub.GetPlanThenRun(request, timeout=90000)
         else:
             raise ValueError(f"Unknown gRPC method: {method_name}")
 
@@ -167,7 +167,7 @@ class GrpcClient:
                 if not self._is_channel_ready():
                     self._connect()
                 try:
-                    grpc.channel_ready_future(self.channel).result(timeout=5.0)
+                    grpc.channel_ready_future(self.channel).result(timeout=9.0)
                     return True
                 except grpc.FutureTimeoutError:
                     logger.warning("gRPC connection test timed out")

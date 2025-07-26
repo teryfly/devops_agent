@@ -7,9 +7,10 @@ CREATE TABLE IF NOT EXISTS projects (
     created_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
-ALTER TABLE `projects` ADD COLUMN `llm_model` VARCHAR(64) DEFAULT NULL;
-ALTER TABLE `projects` ADD COLUMN `llm_url` VARCHAR(128) DEFAULT NULL;
-
+ALTER TABLE `projects` ADD COLUMN `llm_model` VARCHAR(64) DEFAULT 'GPT-4.1';
+ALTER TABLE `projects` ADD COLUMN `llm_url` VARCHAR(128) DEFAULT 'http://43.132.224.225:8000/v1/chat/completions';
+ALTER TABLE `projects` ADD COLUMN `git_work_dir` VARCHAR(64) DEFAULT '/git_workspace';
+ALTER TABLE `projects` ADD COLUMN `ai_work_dir` VARCHAR(64) DEFAULT '/aiWorkDir';
 -- Plan Categories Table
 CREATE TABLE IF NOT EXISTS plan_categories (
     id INT AUTO_INCREMENT PRIMARY KEY,

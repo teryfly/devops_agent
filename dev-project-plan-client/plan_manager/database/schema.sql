@@ -110,23 +110,27 @@ ON DUPLICATE KEY UPDATE config_key=config_key;
 
 CREATE TABLE IF NOT EXISTS conversations (
     id VARCHAR(64) PRIMARY KEY,
-    system_prompt TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS messages (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    conversation_id VARCHAR(64),
-    role VARCHAR(32),
-    content TEXT,
+    system_prompt MEDIUMTEXT,
+    status TINYINT NOT NULL DEFAULT 0, -- 1 为存档
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-
 ALTER TABLE conversations
 ADD COLUMN project_id INT NOT NULL DEFAULT 0
 ADD COLUMN name VARCHAR(32) DEFAULT NULL COMMENT '会话名称',
 ADD COLUMN assistance_role VARCHAR(16) DEFAULT NULL COMMENT '助手角色',
 ADD COLUMN model VARCHAR(64) DEFAULT NULL COMMENT '使用的模型名称';
+
+CREATE TABLE IF NOT EXISTS messages (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    conversation_id VARCHAR(64),
+    role VARCHAR(32),
+    content MEDIUMTEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+
+
 
 

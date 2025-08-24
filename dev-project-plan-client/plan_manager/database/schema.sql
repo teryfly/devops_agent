@@ -131,6 +131,29 @@ CREATE TABLE IF NOT EXISTS messages (
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
+-- 创建文档引用表
+CREATE TABLE IF NOT EXISTS document_references (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL COMMENT '项目ID',
+    conversation_id VARCHAR(64) NULL COMMENT '会话ID（可为空，表示项目级别引用）',
+    document_id INT NOT NULL COMMENT '引用的文档ID',
+    reference_type ENUM('project', 'conversation') NOT NULL DEFAULT 'project' COMMENT '引用类型',
+    
+    -- 外键约束
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES plan_documents(id) ON DELETE CASCADE,
+    
+    -- 唯一约束确保不重复引用
+    UNIQUE KEY unique_project_document (project_id, document_id),
+    UNIQUE KEY unique_conversation_document (conversation_id, document_id),
+    
+    -- 索引优化查询性能
+    INDEX idx_project_id (project_id),
+    INDEX idx_conversation_id (conversation_id),
+    INDEX idx_document_id (document_id),
+    INDEX idx_reference_type (reference_type)
+);
 
-
-
+-- 添加注释说明表用途
+ALTER TABLE document_references COMMENT = '记录项目和会话对计划文档的引用关系，确保项目级别的文档不会被会话重复引用';
